@@ -1,9 +1,22 @@
 #include "ili9341.h"
 #include "fonts.h"
 #include "logger.h"
+#include <stdlib.h>
+#include "cmsis_os.h"
 
 // SPI handle
 extern SPI_HandleTypeDef hspi1;
+
+// DMA flag
+volatile uint8_t dma_transfer_complete = 1;
+
+// DMA callback
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
+    if (hspi->Instance == SPI1) {
+        dma_transfer_complete = 1;
+        TFT_CS_HIGH;  // Release CS after DMA transfer
+    }
+}
 
 static void ILI9341_Delay(uint32_t ms) {
     HAL_Delay(ms);
@@ -192,10 +205,72 @@ void ILI9341_FillRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint1
     TFT_DC_HIGH;
     TFT_CS_LOW;
 
-    uint32_t total_pixels = w * h;
-    for (uint32_t i = 0; i < total_pixels; i++) {
-        uint8_t buf[2] = {(color >> 8) & 0xFF, color & 0xFF};
-        HAL_SPI_Transmit(&hspi1, buf, 2, HAL_MAX_DELAY);
+    uint32_t total_pixels = (uint32_t)w * (uint32_t)h;
+
+    // Use DMA for medium rectangles (> 1000 but < 5000 pixels to avoid issues with large clears)
+    if (total_pixels > 1000 && total_pixels < 5000) {
+        // Create buffer for DMA transfer
+        uint32_t buffer_size = total_pixels * 2; // 2 bytes per pixel
+        uint8_t *dma_buffer = (uint8_t*)malloc(buffer_size);
+
+        if (dma_buffer != NULL) {
+            // Fill buffer with color data
+            uint8_t color_high = (color >> 8) & 0xFF;
+            uint8_t color_low = color & 0xFF;
+
+            for (uint32_t i = 0; i < buffer_size; i += 2) {
+                dma_buffer[i] = color_high;
+                dma_buffer[i + 1] = color_low;
+            }
+
+            // Wait for any previous DMA transfer to complete
+            while (!dma_transfer_complete) {
+                osDelay(1);
+            }
+
+            dma_transfer_complete = 0;
+
+            // Start DMA transfer
+            if (HAL_SPI_Transmit_DMA(&hspi1, dma_buffer, buffer_size) == HAL_OK) {
+                // Wait for DMA completion
+                uint32_t timeout = 1000; // 1 second timeout
+                while (!dma_transfer_complete && timeout--) {
+                    osDelay(1);
+                }
+
+                if (!dma_transfer_complete) {
+                    // DMA failed, fallback to regular SPI
+                    HAL_SPI_Abort(&hspi1);
+                    dma_transfer_complete = 1;
+
+                    for (uint32_t i = 0; i < total_pixels; i++) {
+                        uint8_t buf[2] = {color_high, color_low};
+                        HAL_SPI_Transmit(&hspi1, buf, 2, HAL_MAX_DELAY);
+                    }
+                }
+            } else {
+                // DMA not available, use regular SPI
+                dma_transfer_complete = 1;
+                for (uint32_t i = 0; i < total_pixels; i++) {
+                    uint8_t buf[2] = {color_high, color_low};
+                    HAL_SPI_Transmit(&hspi1, buf, 2, HAL_MAX_DELAY);
+                }
+            }
+
+            free(dma_buffer);
+        } else {
+            // Memory allocation failed, use regular SPI
+            for (uint32_t i = 0; i < total_pixels; i++) {
+                uint8_t buf[2] = {(color >> 8) & 0xFF, color & 0xFF};
+                HAL_SPI_Transmit(&hspi1, buf, 2, HAL_MAX_DELAY);
+            }
+        }
+    } else {
+        // Use regular SPI for small rectangles
+        for (uint32_t i = 0; i < total_pixels; i++) {
+            uint8_t buf[2] = {(color >> 8) & 0xFF, color & 0xFF};
+            HAL_SPI_Transmit(&hspi1, buf, 2, HAL_MAX_DELAY);
+        }
     }
 
     TFT_CS_HIGH;

@@ -30,6 +30,9 @@
 #include "fonts.h"
 #include "logger.h"
 #include "config.h"
+
+// DMA transfer flag from ili9341.c
+extern volatile uint8_t dma_transfer_complete;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -144,8 +147,17 @@ void StartDefaultTask(void const * argument)
   LOG_Printf("Setting display to landscape mode");
   ILI9341_SetRotation(0x28);  // Landscape mode
 
+  // Small delay after rotation
+  HAL_Delay(100);
+
   // Fill screen with black
   ILI9341_FillScreen(ILI9341_BLACK);
+
+  // Additional delay to ensure display is ready
+  HAL_Delay(200);
+
+  // Debug: Check which task is active
+  LOG_Printf("Config check active");
 
 #if TASK_ALPHABET_DISPLAY
   // Task 1: Display complete alphabet with two fonts
@@ -154,20 +166,16 @@ void StartDefaultTask(void const * argument)
 
   // Font1 (5x7) - Uppercase A-Z
   const char *upper_az = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  LOG_Printf("Font1 Uppercase: %s", upper_az);
   ILI9341_DrawString(10, 10, upper_az, ILI9341_WHITE, ILI9341_BLACK, 1, Font1);
 
   // Font1 (5x7) - Lowercase a-z
   const char *lower_az = "abcdefghijklmnopqrstuvwxyz";
-  LOG_Printf("Font1 Lowercase: %s", lower_az);
   ILI9341_DrawString(10, 25, lower_az, ILI9341_CYAN, ILI9341_BLACK, 1, Font1);
 
   // Font1_2x (10x14) - Uppercase A-Z
-  LOG_Printf("Font1_2x Uppercase: %s", upper_az);
   ILI9341_DrawStringLarge(10, 45, upper_az, ILI9341_YELLOW, ILI9341_BLACK);
 
   // Font1_2x (10x14) - Lowercase a-z
-  LOG_Printf("Font1_2x Lowercase: %s", lower_az);
   ILI9341_DrawStringLarge(10, 75, lower_az, ILI9341_RED, ILI9341_BLACK);
 
 #elif TASK_SCROLLING_HELLO
@@ -180,29 +188,74 @@ void StartDefaultTask(void const * argument)
   const int text_width = 12 * 13; // Approximate width of text in large font
 
   int prev_scroll_pos = scroll_pos;
+  const int char_width = 13; // Width of large character (10px + spacing)
+
+  LOG_Printf("Starting scroll loop with optimized rendering...");
+
+  // Double buffering for flicker-free scrolling
+  // Buffer for the text line area: 320 pixels wide x 30 pixels high
+  #define TEXT_BUFFER_WIDTH 320
+  #define TEXT_BUFFER_HEIGHT 30
+  #define TEXT_BUFFER_SIZE (TEXT_BUFFER_WIDTH * TEXT_BUFFER_HEIGHT)
+
+  static uint16_t text_buffer[TEXT_BUFFER_SIZE]; // 320*30*2 = 19,200 bytes
 
   while (1) {
-    // Calculate text boundaries
-    int current_end = scroll_pos + text_width;
-    int prev_end = prev_scroll_pos + text_width;
-
-    // Clear only the area that needs to be cleared (partial update)
-    // Clear the trailing area of previous text position
-    if (prev_end > 0 && prev_end < 320) {
-      ILI9341_FillRectangle(prev_end, 100, 320 - prev_end, 40, ILI9341_BLACK);
+    // Clear the software buffer (fast memory operation)
+    for (int i = 0; i < TEXT_BUFFER_SIZE; i++) {
+      text_buffer[i] = ILI9341_BLACK;
     }
 
-    // Clear the leading area if text is entering from right
-    if (scroll_pos > 0 && scroll_pos < 320) {
-      ILI9341_FillRectangle(0, 100, scroll_pos, 40, ILI9341_BLACK);
+    // Draw text into the software buffer (no SPI, pure memory)
+    // Simulate drawing at the current scroll position
+    int buffer_x = scroll_pos;
+    const char *text_ptr = hello_text;
+
+    while (*text_ptr && buffer_x < TEXT_BUFFER_WIDTH) {
+      // Draw character into buffer using actual font data
+      if (*text_ptr >= 32 && *text_ptr < 127) {
+        int char_index = *text_ptr - 32;
+
+        // Render each column of the character
+        for (int col = 0; col < 5 && buffer_x + col * 2 < TEXT_BUFFER_WIDTH; col++) {
+          uint8_t line = Font1[char_index * 5 + col];
+
+          // Render each row of the character (scaled 2x)
+          for (int row = 0; row < 7; row++) {
+            if (line & 0x1) {  // Pixel is set in font
+              // Scale 2x: draw 2x2 pixel block
+              int pixel_y = 5 + row * 2;  // Center vertically, scale by 2
+
+              for (int sy = 0; sy < 2 && pixel_y + sy < TEXT_BUFFER_HEIGHT; sy++) {
+                for (int sx = 0; sx < 2 && buffer_x + col * 2 + sx < TEXT_BUFFER_WIDTH; sx++) {
+                  int pixel_x = buffer_x + col * 2 + sx;
+                  text_buffer[(pixel_y + sy) * TEXT_BUFFER_WIDTH + pixel_x] = ILI9341_GREEN;
+                }
+              }
+            }
+            line >>= 1;  // Next row bit
+          }
+        }
+        buffer_x += 13; // Character width (10px) + spacing (3px)
+      }
+      text_ptr++;
     }
 
-    // Draw the scrolling text
-    ILI9341_DrawStringLarge(scroll_pos, 110, hello_text, ILI9341_GREEN, ILI9341_BLACK);
+    // Transfer the entire buffer to display via DMA (single operation)
+    ILI9341_SetAddressWindow(0, 105, TEXT_BUFFER_WIDTH - 1, 105 + TEXT_BUFFER_HEIGHT - 1);
+
+    // Use DMA for the buffer transfer (19,200 bytes)
+    TFT_DC_HIGH;
+    TFT_CS_LOW;
+
+    // For now, use regular SPI for testing (more reliable)
+    HAL_SPI_Transmit(&hspi1, (uint8_t*)text_buffer, TEXT_BUFFER_SIZE * 2, HAL_MAX_DELAY);
+
+    TFT_CS_HIGH;
 
     // Update positions
     prev_scroll_pos = scroll_pos;
-    scroll_pos -= 2; // Move left by 2 pixels
+    scroll_pos -= 1; // Move left by 1 pixel for smoother animation
 
     // Reset position when text goes off screen
     if (scroll_pos < -text_width) {
@@ -210,8 +263,11 @@ void StartDefaultTask(void const * argument)
       prev_scroll_pos = scroll_pos;
     }
 
-    // Optimized delay for smoother scrolling
-    osDelay(30); // Reduced from 50ms for smoother animation
+    // Optimized delay for very smooth scrolling
+    osDelay(20); // 50 FPS for ultra smooth animation
+
+    // Yield to other tasks to prevent starvation
+    taskYIELD();
   }
 
 #endif
