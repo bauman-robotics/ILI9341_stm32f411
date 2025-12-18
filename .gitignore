@@ -1,0 +1,50 @@
+# Build artifacts
+build/
+*.o
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.d
+*.su
+
+# STM32CubeMX generated files
+*.launch
+*.scvd
+*.svd
+*.wsd
+
+# IDE files
+.vscode/settings.json
+.vscode/launch.json
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# STM32CubeIDE
+.cproject
+.project
+.settings/
+
+# Documentation generated files
+*.pdf
+*.html
+*.chm
+
+# Backup files
+*.orig
+*.rej
+
+# STM32CubeMX backup
+*.ioc.backup
