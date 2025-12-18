@@ -38,7 +38,7 @@ GND              ──► GND
 
 ```bash
 # Клонировать репозиторий
-git clone <repository-url>
+git clone git@github.com:bauman-robotics/ILI9341_stm32f411.git
 cd ILI9341_STM32F411
 
 # Собрать проект
