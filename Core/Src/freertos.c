@@ -339,8 +339,8 @@ void StartDefaultTask(void const * argument)
     num_x += key_width + key_spacing;
   }
 
-  // Row 1: Q W E R T Y U I O P
-  const char *qwerty1 = "QWERTYUIOP";
+  // Row 1: QWERTY row
+  const char *qwerty1 = (KEYBOARD_CASE == KEYBOARD_CASE_LOWER) ? "qwertyuiop" : "QWERTYUIOP";
   int current_x = start_x;
   int current_y = start_y;
 
@@ -350,8 +350,8 @@ void StartDefaultTask(void const * argument)
     current_x += key_width + key_spacing;
   }
 
-  // Row 2: A S D F G H J K L
-  const char *qwerty2 = "ASDFGHJKL";
+  // Row 2: ASDF row
+  const char *qwerty2 = (KEYBOARD_CASE == KEYBOARD_CASE_LOWER) ? "asdfghjkl" : "ASDFGHJKL";
   current_x = start_x + (key_width + key_spacing) / 2; // Offset for QWERTY layout
   current_y = start_y + key_height + key_spacing + 5;
 
@@ -361,8 +361,8 @@ void StartDefaultTask(void const * argument)
     current_x += key_width + key_spacing;
   }
 
-  // Row 3: Z X C V B N M
-  const char *qwerty3 = "ZXCVBNM";
+  // Row 3: ZXCV row
+  const char *qwerty3 = (KEYBOARD_CASE == KEYBOARD_CASE_LOWER) ? "zxcvbnm" : "ZXCVBNM";
   current_x = start_x + (key_width + key_spacing); // Offset for QWERTY layout
   current_y = current_y + key_height + key_spacing + 5;
 

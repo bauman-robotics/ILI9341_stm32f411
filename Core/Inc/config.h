@@ -28,4 +28,11 @@
 // Current keyboard font (choose one)
 #define KEYBOARD_FONT KEYBOARD_FONT_MEDIUM
 
+// Keyboard letter case options
+#define KEYBOARD_CASE_UPPER   0  // Uppercase letters (QWERTY)
+#define KEYBOARD_CASE_LOWER   1  // Lowercase letters (qwerty)
+
+// Current keyboard case (choose one)
+#define KEYBOARD_CASE KEYBOARD_CASE_LOWER
+
 #endif /* CONFIG_H */
