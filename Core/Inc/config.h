@@ -40,6 +40,11 @@
 #define DISPLAY_TEXT_LINE2 "STM32 ILI9341"
 
 // Debug configuration
-#define ENABLE_FRAMEBUFFER_DEBUG 1  // Enable detailed framebuffer coordinates logging
+#define ENABLE_FRAMEBUFFER_DEBUG 0  // Enable detailed framebuffer coordinates logging
+
+// Touchscreen configuration
+#define ENABLE_TOUCHSCREEN 1         // Enable MSP2807 touchscreen support
+#define ENABLE_TOUCH_DEBUG 0         // Enable touch coordinates logging
+#define ENABLE_TOUCH_INIT_MINIMAL 1  // Minimal initialization without HAL
 
 #endif /* CONFIG_H */

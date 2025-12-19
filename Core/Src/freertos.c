@@ -31,6 +31,7 @@
 #include "logger.h"
 #include "config.h"
 #include "keyboard_layout.h"
+#include "touch.h"
 
 // DMA transfer flag from ili9341.c
 extern volatile uint8_t dma_transfer_complete;
@@ -59,6 +60,8 @@ osThreadId defaultTaskHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+
+void TouchTask(void const * argument);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -116,6 +119,10 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+
+  // Touchscreen initialization moved to StartDefaultTask
+  // to avoid blocking USB initialization
+
   /* USER CODE END RTOS_THREADS */
 
 }
@@ -133,9 +140,24 @@ void StartDefaultTask(void const * argument)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
 
+  // Simple GPIO test at startup
+  LOG_SendString("GPIO: Testing PC13 LED pin at startup\r\n");
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  GPIOC->MODER &= ~GPIO_MODER_MODER13;    // Clear mode
+  GPIOC->MODER |= GPIO_MODER_MODER13_0;   // Output mode
+  GPIOC->BSRR = GPIO_PIN_13;              // Set HIGH
+  LOG_SendString("GPIO: PC13 set to HIGH - check if LED turns off\r\n");
+
   LOG_Init();
   HAL_Delay(1000); // Give USB CDC time to initialize
   LOG_Printf("System: Starting application\n");
+
+  // Touchscreen initialization after USB is ready
+  #if ENABLE_TOUCHSCREEN && ENABLE_TOUCH_INIT_MINIMAL
+  LOG_SendString("TOUCH: Minimal initialization test (after USB)\r\n");
+  TOUCH_Init();
+  LOG_SendString("TOUCH: Minimal initialization completed\r\n");
+  #endif
 
   // Turn on backlight
   LOG_Printf("GPIO: Turning on backlight\n");
