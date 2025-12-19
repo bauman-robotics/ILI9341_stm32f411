@@ -143,7 +143,7 @@ void StartDefaultTask(void const * argument)
   // Initialize display
   ILI9341_Init();
 
-  // Set rotation to landscape
+  // Set rotation to landscape mode (working orientation)
   LOG_Printf("Setting display to landscape mode");
   ILI9341_SetRotation(0x28);  // Landscape mode
 
@@ -268,6 +268,104 @@ void StartDefaultTask(void const * argument)
     // Yield to other tasks to prevent starvation
     taskYIELD();
   }
+
+#elif TASK_QWERTY_KEYBOARD == 1
+  // Task 3: Draw QWERTY keyboard layout with borders for touchscreen
+  LOG_Printf("Task: QWERTY Keyboard Layout");
+  LOG_Printf("Drawing keyboard with borders for touchscreen");
+
+  // Clear screen to black
+  ILI9341_FillScreen(ILI9341_BLACK);
+
+
+
+  // Simple QWERTY keyboard layout (like original working version)
+  const int key_width = 28;   // Key width
+  const int key_height = 28;  // Key height
+  const int key_spacing = 2;  // Space between keys
+  const int start_x = 5;      // Starting X position
+  const int start_y = 10 + key_height + 10; // Starting Y position (shifted down)
+
+  // Color palette selection
+  uint16_t border_color, key_color, text_color;
+  switch (KEYBOARD_PALETTE) {
+    case KEYBOARD_PALETTE_CLASSIC:
+      border_color = ILI9341_WHITE;
+      key_color = ILI9341_CYAN;
+      text_color = ILI9341_BLACK;
+      break;
+    case KEYBOARD_PALETTE_DARK:
+      border_color = ILI9341_GRAY;
+      key_color = ILI9341_NAVY;
+      text_color = ILI9341_WHITE;
+      break;
+    case KEYBOARD_PALETTE_MODERN:
+      border_color = ILI9341_BLACK;
+      key_color = ILI9341_MAGENTA;
+      text_color = ILI9341_WHITE;
+      break;
+    default:
+      border_color = ILI9341_WHITE;
+      key_color = ILI9341_CYAN;
+      text_color = ILI9341_BLACK;
+  }
+
+  // Helper function to draw a key (inline implementation)
+  #define drawKey(x, y, label, width_mult) \
+    do { \
+      int actual_width = key_width * width_mult + (width_mult - 1) * key_spacing; \
+      ILI9341_FillRectangle(x - 1, y - 1, actual_width + 2, key_height + 2, border_color); \
+      ILI9341_FillRectangle(x, y, actual_width, key_height, key_color); \
+      int text_x = x + (actual_width - strlen(label) * 6) / 2; \
+      int text_y = y + 6; \
+      ILI9341_DrawString(text_x, text_y, label, text_color, key_color, 1, Font1); \
+    } while(0)
+
+  // Row 1: Q W E R T Y U I O P
+  const char *qwerty1 = "QWERTYUIOP";
+  int current_x = start_x;
+  int current_y = start_y;
+
+  for (int i = 0; qwerty1[i] != '\0'; i++) {
+    char key_label[2] = {qwerty1[i], '\0'};
+    drawKey(current_x, current_y, key_label, 1);
+    current_x += key_width + key_spacing;
+  }
+
+  // Row 2: A S D F G H J K L
+  const char *qwerty2 = "ASDFGHJKL";
+  current_x = start_x + (key_width + key_spacing) / 2; // Offset for QWERTY layout
+  current_y = start_y + key_height + key_spacing + 5;
+
+  for (int i = 0; qwerty2[i] != '\0'; i++) {
+    char key_label[2] = {qwerty2[i], '\0'};
+    drawKey(current_x, current_y, key_label, 1);
+    current_x += key_width + key_spacing;
+  }
+
+  // Row 3: Z X C V B N M
+  const char *qwerty3 = "ZXCVBNM";
+  current_x = start_x + (key_width + key_spacing); // Offset for QWERTY layout
+  current_y = current_y + key_height + key_spacing + 5;
+
+  for (int i = 0; qwerty3[i] != '\0'; i++) {
+    char key_label[2] = {qwerty3[i], '\0'};
+    drawKey(current_x, current_y, key_label, 1);
+    current_x += key_width + key_spacing;
+  }
+
+  // Space bar
+  current_x = start_x + 2 * (key_width + key_spacing);
+  current_y = current_y + key_height + key_spacing + 10;
+  int space_width = 5 * (key_width + key_spacing) - key_spacing;
+
+  ILI9341_FillRectangle(current_x - 1, current_y - 1, space_width + 2, key_height + 2, border_color);
+  ILI9341_FillRectangle(current_x, current_y, space_width, key_height, key_color);
+  ILI9341_DrawString(current_x + space_width/2 - 20, current_y + 8, "SPACE", text_color, key_color, 1, Font1);
+
+  LOG_Printf("Keyboard drawing complete");
+
+  LOG_Printf("QWERTY keyboard layout drawn");
 
 #endif
 

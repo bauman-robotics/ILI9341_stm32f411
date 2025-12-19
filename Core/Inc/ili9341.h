@@ -45,6 +45,8 @@
 #define ILI9341_MAGENTA     0xF81F
 #define ILI9341_YELLOW      0xFFE0
 #define ILI9341_WHITE       0xFFFF
+#define ILI9341_GRAY        0x8410
+#define ILI9341_NAVY        0x0010
 
 // Display dimensions
 #define ILI9341_TFTWIDTH    320
