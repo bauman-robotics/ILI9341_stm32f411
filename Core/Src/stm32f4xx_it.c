@@ -223,6 +223,9 @@ void OTG_FS_IRQHandler(void)
 void EXTI9_5_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI9_5_IRQn 0 */
+  // Toggle LED for debugging (PC13)
+  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+
   #if ENABLE_TOUCH_DEBUG
   LOG_SendString("TOUCH: Interrupt received from touchscreen\r\n");
   #endif

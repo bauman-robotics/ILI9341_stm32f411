@@ -20,12 +20,15 @@ void LOG_SendString(const char *str) {
     uint16_t len = strlen(str);
     if (len == 0) return;
 
+    // Check if we're in interrupt context
+    BaseType_t inInterrupt = xPortIsInsideInterrupt();
+
     // Send via USB CDC with retry
     uint8_t result;
     uint8_t retries = 10;
     do {
         result = CDC_Transmit_FS((uint8_t*)str, len);
-        if (result == USBD_BUSY) {
+        if (result == USBD_BUSY && !inInterrupt) {
             if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
                 osDelay(10);
             } else {
@@ -33,13 +36,15 @@ void LOG_SendString(const char *str) {
             }
         }
         retries--;
-    } while (result == USBD_BUSY && retries > 0);
+    } while (result == USBD_BUSY && retries > 0 && !inInterrupt);
 
-    // Small delay to allow transmission
-    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        osDelay(5);
-    } else {
-        HAL_Delay(5);
+    // Small delay to allow transmission (skip in interrupt)
+    if (!inInterrupt) {
+        if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+            osDelay(5);
+        } else {
+            HAL_Delay(5);
+        }
     }
 }
 
