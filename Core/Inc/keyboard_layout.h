@@ -245,8 +245,8 @@ static inline void render_keyboard_layout(void) {
         current_x += KEY_WIDTH + KEY_SPACING;
     }
 
-    // Отрисовка ряда ZXCV (z x c v b n m) или (Z X C V B N M)
-    const char *qwerty3 = (KEYBOARD_CASE == KEYBOARD_CASE_LOWER) ? "zxcvbnm" : "ZXCVBNM";
+    // Отрисовка ряда ZXCV (z x c v b n m . ,) или (Z X C V B N M . ,)
+    const char *qwerty3 = (KEYBOARD_CASE == KEYBOARD_CASE_LOWER) ? "zxcvbnm.," : "ZXCVBNM.,";
     current_x = KEYBOARD_START_X + ZXCV_ROW_OFFSET;
     for (int i = 0; qwerty3[i] != '\0'; i++) {
         char key_label[2] = {qwerty3[i], '\0'};
