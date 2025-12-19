@@ -53,11 +53,12 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void prvGetRegistersFromStack(uint32_t *pulFaultStackAddress);
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
 extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
+extern SPI_HandleTypeDef hspi2;
 extern TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN EV */
@@ -88,7 +89,18 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-
+  // Сохраняем адрес возврата для анализа
+  __asm volatile
+  (
+    "tst lr, #4                                     \n"
+    "ite eq                                         \n"
+    "mrseq r0, msp                                  \n"
+    "mrsne r0, psp                                  \n"
+    "ldr r1, [r0, #24]                              \n"
+    "ldr r2, handler_address_const                  \n"
+    "bx r2                                          \n"
+    "handler_address_const: .word prvGetRegistersFromStack \n"
+  );
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
@@ -177,6 +189,20 @@ void TIM1_UP_TIM10_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles SPI2 global interrupt.
+  */
+void SPI2_IRQHandler(void)
+{
+  /* USER CODE BEGIN SPI2_IRQn 0 */
+
+  /* USER CODE END SPI2_IRQn 0 */
+  HAL_SPI_IRQHandler(&hspi2);
+  /* USER CODE BEGIN SPI2_IRQn 1 */
+
+  /* USER CODE END SPI2_IRQn 1 */
+}
+
+/**
   * @brief This function handles USB On The Go FS global interrupt.
   */
 void OTG_FS_IRQHandler(void)
@@ -191,5 +217,28 @@ void OTG_FS_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+void prvGetRegistersFromStack(uint32_t *pulFaultStackAddress)
+{
+  volatile uint32_t r0;
+  volatile uint32_t r1;
+  volatile uint32_t r2;
+  volatile uint32_t r3;
+  volatile uint32_t r12;
+  volatile uint32_t lr;  /* Link register */
+  volatile uint32_t pc;  /* Program counter */
+  volatile uint32_t psr; /* Program status register */
 
+  r0 = pulFaultStackAddress[0];
+  r1 = pulFaultStackAddress[1];
+  r2 = pulFaultStackAddress[2];
+  r3 = pulFaultStackAddress[3];
+  r12 = pulFaultStackAddress[4];
+  lr = pulFaultStackAddress[5];
+  pc = pulFaultStackAddress[6];
+  psr = pulFaultStackAddress[7];
+
+  /* Установите breakpoint на следующей строке для анализа */
+  for (;;)
+    ;
+}
 /* USER CODE END 1 */

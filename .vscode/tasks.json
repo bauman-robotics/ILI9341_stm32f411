@@ -9,64 +9,45 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            },
-            "problemMatcher": "$gcc",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
+            "problemMatcher": ["$gcc"]
         },
         {
-            "label": "Clean",
+            "label": "Flash (st-flash)",
             "type": "shell",
             "command": "make",
-            "args": ["clean"],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            },
-            "options": {
-                "cwd": "${workspaceFolder}"
+            "args": ["flash"],
+            "dependsOn": ["Build"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Start OpenOCD",
+            "type": "shell",
+            "command": "openocd",
+            "args": ["-f", "openocd.cfg"],
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "Open On-Chip Debugger",
+                    "endsPattern": "Listening on port 3333 for gdb connections"
+                }
             }
         },
         {
-            "label": "Flash",
+            "label": "Stop OpenOCD",
             "type": "shell",
-            "command": "st-flash",
-            "args": ["write", "build/ILI9341_stm32f411.bin", "0x08000000"],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            },
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
+            "command": "killall",
+            "args": ["openocd"],
+            "problemMatcher": []
         },
         {
-            "label": "Build and Flash",
-            "type": "shell",
-            "command": "make && st-flash write build/ILI9341_stm32f411.bin 0x08000000",
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            },
-            "problemMatcher": "$gcc",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
+            "label": "Flash and Start OpenOCD",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Flash (st-flash)", "Start OpenOCD"],
+            "problemMatcher": []
         }
     ]
 }

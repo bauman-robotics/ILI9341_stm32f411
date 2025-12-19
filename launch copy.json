@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug STM32F411 (OpenOCD)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "configFiles": ["${workspaceFolder}/openocd.cfg"],
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/ILI9341_stm32f411.elf",
+            "device": "STM32F411CE",
+            "interface": "swd",
+            "gdbPort": 3333,
+            "tclPort": 6666,
+            "telnetPort": 4444,
+            "serialNumber": "",
+            "runToEntryPoint": "main",
+            "preLaunchTask": "Build",
+            "svdFile": "",
+            "showDevDebugOutput": "raw",
+            "swoConfig": {
+                "enabled": false,
+                "cpuFrequency": 0,
+                "swoFrequency": 0,
+                "source": "probe",
+                "port": 0
+            },
+            "graphConfig": [],
+            "preLaunchCommands": [
+                "set mem inaccessible-by-default off",
+                "monitor halt"
+            ],
+            "postLaunchCommands": [],
+            "overrideLaunchCommands": [],
+            "overrideRestartCommands": []
+        }
+    ]
+}

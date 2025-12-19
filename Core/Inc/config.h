@@ -42,9 +42,14 @@
 // Debug configuration
 #define ENABLE_FRAMEBUFFER_DEBUG 0  // Enable detailed framebuffer coordinates logging
 
+// Live packet task configuration
+#define ENABLE_LIVE_PACKET_TASK 0    // Enable live packet output task
+#define LIVE_PACKET_START_DELAY_MS 3000  // Delay before starting live packet output (30 seconds)
+#define LIVE_PACKET_START_PERIOD_MS 3000
+
 // Touchscreen configuration
 #define ENABLE_TOUCHSCREEN 1         // Enable MSP2807 touchscreen support
-#define ENABLE_TOUCH_DEBUG 0         // Enable touch coordinates logging
-#define ENABLE_TOUCH_INIT_MINIMAL 1  // Minimal initialization without HAL
+#define ENABLE_TOUCH_DEBUG 1         // Enable touch coordinates logging
+#define ENABLE_TOUCH_INIT_MINIMAL 0  // No TOUCH_Init() - test TouchTask only
 
 #endif /* CONFIG_H */

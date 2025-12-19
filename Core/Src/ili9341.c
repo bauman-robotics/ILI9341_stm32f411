@@ -2,7 +2,9 @@
 #include "fonts.h"
 #include "logger.h"
 #include <stdlib.h>
-#include "cmsis_os.h"
+#include "cmsis_os.h"  // ДОБАВЬТЕ ЭТУ СТРОКУ
+#include "FreeRTOS.h"  // ДОБАВЬТЕ ЭТУ СТРОКУ
+#include "task.h"      // ДОБАВЬТЕ ЭТУ СТРОКУ
 
 // SPI handle
 extern SPI_HandleTypeDef hspi1;
@@ -19,7 +21,11 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
 }
 
 static void ILI9341_Delay(uint32_t ms) {
-    HAL_Delay(ms);
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        osDelay(ms);
+    } else {
+        HAL_Delay(ms);
+    }
 }
 
 void ILI9341_WriteCommand(uint8_t cmd) {

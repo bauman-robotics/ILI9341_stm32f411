@@ -1,6 +1,9 @@
 #include "logger.h"
 #include "usbd_cdc_if.h"
 #include <stdarg.h>
+#include "cmsis_os.h"  // ДОБАВЬТЕ
+#include "FreeRTOS.h"  // ДОБАВЬТЕ
+#include "task.h"      // ДОБАВЬТЕ
 
 // Buffer for formatted strings
 #define LOG_BUFFER_SIZE 256
@@ -23,13 +26,21 @@ void LOG_SendString(const char *str) {
     do {
         result = CDC_Transmit_FS((uint8_t*)str, len);
         if (result == USBD_BUSY) {
-            HAL_Delay(10); // Wait a bit and retry
+            if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+                osDelay(10);
+            } else {
+                HAL_Delay(10);
+            }
         }
         retries--;
     } while (result == USBD_BUSY && retries > 0);
 
     // Small delay to allow transmission
-    HAL_Delay(5);
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        osDelay(5);
+    } else {
+        HAL_Delay(5);
+    }
 }
 
 void LOG_Printf(const char *format, ...) {

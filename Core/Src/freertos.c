@@ -62,6 +62,7 @@ osThreadId defaultTaskHandle;
 /* USER CODE BEGIN FunctionPrototypes */
 
 void TouchTask(void const * argument);
+void LivePacketTask(void const * argument);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -120,8 +121,23 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
 
-  // Touchscreen initialization moved to StartDefaultTask
-  // to avoid blocking USB initialization
+  #if ENABLE_TOUCHSCREEN
+  // Create TouchTask for touchscreen handling
+  //LOG_SendString("FREERTOS: Creating TouchTask...\r\n");
+  osThreadDef(touchTask, TouchTask, osPriorityNormal, 0, 256);
+  osThreadId touchTaskHandle = osThreadCreate(osThread(touchTask), NULL);
+  if (touchTaskHandle == NULL) {
+    //LOG_SendString("FREERTOS: ERROR - TouchTask creation failed!\r\n");
+  } else {
+    // LOG_SendString("FREERTOS: TouchTask created successfully\r\n");
+  }
+  #endif
+
+  #if ENABLE_LIVE_PACKET_TASK
+  // Create LivePacketTask for live packet output (without logging to avoid USB conflicts)
+  osThreadDef(livePacketTask, LivePacketTask, osPriorityBelowNormal, 0, 256);
+  osThreadId livePacketTaskHandle = osThreadCreate(osThread(livePacketTask), NULL);
+  #endif
 
   /* USER CODE END RTOS_THREADS */
 
@@ -149,15 +165,10 @@ void StartDefaultTask(void const * argument)
   LOG_SendString("GPIO: PC13 set to HIGH - check if LED turns off\r\n");
 
   LOG_Init();
-  HAL_Delay(1000); // Give USB CDC time to initialize
+  osDelay(1000); // Give USB CDC time to initialize
   LOG_Printf("System: Starting application\n");
 
-  // Touchscreen initialization after USB is ready
-  #if ENABLE_TOUCHSCREEN && ENABLE_TOUCH_INIT_MINIMAL
-  LOG_SendString("TOUCH: Minimal initialization test (after USB)\r\n");
-  TOUCH_Init();
-  LOG_SendString("TOUCH: Minimal initialization completed\r\n");
-  #endif
+  // Touchscreen initialization is now in TouchTask
 
   // Turn on backlight
   LOG_Printf("GPIO: Turning on backlight\n");
@@ -168,16 +179,22 @@ void StartDefaultTask(void const * argument)
 
   // Set rotation to landscape mode (working orientation)
   LOG_Printf("Setting display to landscape mode");
+
+  #if ENABLE_TOUCHSCREEN
+  LOG_SendString("FREERTOS: TouchTask was created\r\n"); // ЗДЕСЬ БЕЗОПАСНО
+  #endif
+
   ILI9341_SetRotation(0x28);  // Landscape mode
 
   // Small delay after rotation
-  HAL_Delay(100);
+  osDelay(100);
 
   // Fill screen with black
   ILI9341_FillScreen(ILI9341_BLACK);
 
   // Additional delay to ensure display is ready
-  HAL_Delay(200);
+  osDelay(200);
+
 
   // Debug: Check which task is active
   LOG_Printf("Config check active");
@@ -318,5 +335,55 @@ void StartDefaultTask(void const * argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+    /* Called if stack overflow is detected */
+    LOG_Printf("STACK OVERFLOW in task: %s\r\n", pcTaskName);
+    taskDISABLE_INTERRUPTS();
+    while(1);
+}
+
+void vApplicationMallocFailedHook(void)
+{
+    /* Called if pvPortMalloc() fails */
+    LOG_SendString("MALLOC FAILED - Out of heap memory!\r\n");
+    taskDISABLE_INTERRUPTS();
+    while(1);
+}
+
+void TouchTask(void const * argument) {
+    LOG_SendString("TOUCH: TouchTask started\r\n");
+
+    // Подождите немного перед инициализацией
+    osDelay(100);
+
+    // Initialize touchscreen in the task
+    TOUCH_Init();
+    
+    LOG_SendString("TOUCH: Initialization complete\r\n");
+
+    while (1) {
+        // Check if touchscreen is currently touched
+        if (TOUCH_IsTouched()) {
+            // Small delay to debounce
+            osDelay(10);
+
+            // Read touch data if still touched
+            if (TOUCH_IsTouched()) {
+                touch_data_t touch_data;
+                if (TOUCH_ReadData(&touch_data)) {
+                    #if ENABLE_TOUCH_DEBUG
+                    LOG_Printf("TOUCH: Event=%d, X=%d, Y=%d, Pressure=%d\r\n",
+                               touch_data.event, touch_data.x, touch_data.y,
+                               touch_data.pressure);
+                    #endif
+                }
+            }
+        }
+
+        // Small delay to prevent CPU hogging
+        osDelay(50);
+    }
+}
 
 /* USER CODE END Application */

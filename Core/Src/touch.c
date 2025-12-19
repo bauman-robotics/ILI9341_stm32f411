@@ -23,10 +23,7 @@ static uint8_t touch_initialized = 0;
 void TOUCH_Init(void) {
     if (touch_initialized) return;
 
-    LOG_SendString("TOUCH: Initializing MSP2807 touchscreen (minimal)\r\n");
-
-    // Minimal initialization - only set CS pin as output
-    // Avoid HAL_GPIO_Init() and HAL_NVIC_EnableIRQ() which may cause issues
+    LOG_SendString("TOUCH: Initializing MSP2807 touchscreen (full)\r\n");
 
     // Configure CS pin manually (PB13)
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -41,22 +38,34 @@ void TOUCH_Init(void) {
 
     LOG_SendString("TOUCH: CS pin (PB13) configured manually\r\n");
 
+    // Configure IRQ pin with HAL (PB9)
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = TOUCH_IRQ_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+
+    HAL_GPIO_Init(TOUCH_IRQ_PORT, &GPIO_InitStruct);
+    LOG_SendString("TOUCH: IRQ pin (PB9) configured with HAL\r\n");
+
+    // Enable interrupt
+    HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+    LOG_SendString("TOUCH: Interrupt EXTI9_5 enabled\r\n");
+
     // Initialize SPI2 for touchscreen communication
     LOG_SendString("TOUCH: Initializing SPI2 for MSP2807\r\n");
-
-    // SPI2 pins should already be configured by MX_SPI2_Init()
-    // But let's make sure SPI2 is enabled
     __HAL_RCC_SPI2_CLK_ENABLE();
 
-    // Configure SPI2 with different polarity/phase
+    // Configure SPI2 with working settings
     hspi2.Instance = SPI2;
     hspi2.Init.Mode = SPI_MODE_MASTER;
     hspi2.Init.Direction = SPI_DIRECTION_2LINES;
     hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-    hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;  // Try different polarity
-    hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;       // Try different phase
+    hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;
+    hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
     hspi2.Init.NSS = SPI_NSS_SOFT;
-    hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32; // Even faster
+    hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
     hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
     hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
     hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -68,46 +77,29 @@ void TOUCH_Init(void) {
         LOG_SendString("TOUCH: SPI2 initialized successfully\r\n");
     }
 
-    // Test SPI2 by sending data without receiving
-    LOG_SendString("TOUCH: Testing SPI2 - sending command only\r\n");
-    uint8_t test_cmd = 0x80; // MSP2807 start command
+    
+    // Test communication with MSP2807
+    LOG_SendString("TOUCH: Testing MSP2807 communication\r\n");
 
-    // Select chip
-    GPIOB->BSRR = (uint32_t)GPIO_PIN_13 << 16; // CS LOW
-    osDelay(1);
-
-    // Send single byte
-    HAL_SPI_Transmit(&hspi2, &test_cmd, 1, 100);
-    LOG_SendString("TOUCH: Command sent\r\n");
-
-    // Deselect chip
-    GPIOB->BSRR = GPIO_PIN_13; // CS HIGH
-    osDelay(1);
-
-    LOG_SendString("TOUCH: SPI transmit test completed\r\n");
-
-    // Try reading with manual CS control
-    LOG_SendString("TOUCH: Testing with manual SPI control\r\n");
-
-    // Manual SPI test - send command and try to read
     uint8_t tx_buffer[3] = {0x80, 0x00, 0x00};
     uint8_t rx_buffer[3] = {0};
 
     GPIOB->BSRR = (uint32_t)GPIO_PIN_13 << 16; // CS LOW
-    HAL_SPI_TransmitReceive(&hspi2, tx_buffer, rx_buffer, 3, 1000);
+    HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(&hspi2, tx_buffer, rx_buffer, 3, 10);
     GPIOB->BSRR = GPIO_PIN_13; // CS HIGH
 
-    LOG_Printf("TOUCH: RX data: %02X %02X %02X\r\n", rx_buffer[0], rx_buffer[1], rx_buffer[2]);
-
-    // Convert to ADC value
-    uint16_t adc_value = ((rx_buffer[1] & 0x7F) << 5) | (rx_buffer[2] >> 3);
-    LOG_Printf("TOUCH: ADC value: %d\r\n", adc_value);
-
-    // Skip interrupt configuration for now to avoid conflicts
-    LOG_SendString("TOUCH: Skipping interrupt configuration\r\n");
-
+    if (status == HAL_OK) {
+        LOG_Printf("TOUCH: MSP2807 RX data: %02X %02X %02X\r\n",  rx_buffer[0], rx_buffer[1], rx_buffer[2]);
+        
+        // Convert to ADC value
+        uint16_t adc_value = ((rx_buffer[1] & 0x7F) << 5) | (rx_buffer[2] >> 3);
+        LOG_Printf("TOUCH: MSP2807 ADC value: %d\r\n", adc_value);
+    } else {
+        LOG_Printf("TOUCH: SPI communication failed! Status: %d\r\n", status);
+    }
+    
     touch_initialized = 1;
-    LOG_SendString("TOUCH: MSP2807 touchscreen initialized (minimal)\r\n");
+    LOG_SendString("TOUCH: MSP2807 touchscreen initialized (full)\r\n");
 
     // Optional calibration
     TOUCH_Calibrate();
@@ -139,8 +131,8 @@ uint16_t TOUCH_ReadADC(uint8_t channel) {
     // Select chip
     HAL_GPIO_WritePin(TOUCH_CS_PORT, TOUCH_CS_PIN, GPIO_PIN_RESET);
 
-    // Send command and receive data
-    HAL_SPI_TransmitReceive(&TOUCH_SPI, tx_data, rx_data, 3, TOUCH_SPI_TIMEOUT);
+    // Send command and receive data  TOUCH_SPI_TIMEOUT
+    HAL_SPI_TransmitReceive(&TOUCH_SPI, tx_data, rx_data, 3, 100);
 
     // Deselect chip
     HAL_GPIO_WritePin(TOUCH_CS_PORT, TOUCH_CS_PIN, GPIO_PIN_SET);

@@ -1,0 +1,73 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "make",
+            "args": [],
+            "options": {
+                "env": {
+                    "PATH": "/usr/bin:/usr/local/bin:/opt/gcc-arm-none-eabi/bin:${env:PATH}"
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Clean",
+            "type": "shell",
+            "command": "make",
+            "args": ["clean"],
+            "options": {
+                "env": {
+                    "PATH": "/usr/bin:/usr/local/bin:/opt/gcc-arm-none-eabi/bin:${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "Flash",
+            "type": "shell",
+            "command": "openocd",
+            "args": [
+                "-f", "openocd.cfg",
+                "-c", "program build/ILI9341_stm32f411.elf verify reset exit"
+            ],
+            "options": {
+                "env": {
+                    "PATH": "/usr/bin:/usr/local/bin:/opt/gcc-arm-none-eabi/bin:${env:PATH}"
+                }
+            },
+            "dependsOn": ["Build"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Start OpenOCD",
+            "type": "shell",
+            "command": "openocd",
+            "args": ["-f", "openocd.cfg"],
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^Info : Listening on port (\\d+) for gdb connections$",
+                    "line": 1
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^Open On-Chip Debugger",
+                    "endsPattern": "^Info : Listening on port .* for gdb connections$"
+                }
+            }
+        },
+        {
+            "label": "Stop OpenOCD",
+            "type": "shell",
+            "command": "killall",
+            "args": ["openocd"],
+            "problemMatcher": []
+        }
+    ]
+}
