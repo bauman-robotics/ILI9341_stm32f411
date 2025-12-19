@@ -30,6 +30,7 @@
 #include "fonts.h"
 #include "logger.h"
 #include "config.h"
+#include "keyboard_layout.h"
 
 // DMA transfer flag from ili9341.c
 extern volatile uint8_t dma_transfer_complete;
@@ -277,126 +278,8 @@ void StartDefaultTask(void const * argument)
   // Clear screen to black
   ILI9341_FillScreen(ILI9341_BLACK);
 
-  // Draw text input field at the top with border (increased height for two lines)
-  const int input_field_x = 5;
-  const int input_field_y = 5;
-  const int input_field_width = 310;
-  const int input_field_height = 60;  // Increased from 40 to 60 for two lines
-
-  // Draw border around input field
-  ILI9341_FillRectangle(input_field_x - 2, input_field_y - 2, input_field_width + 4, input_field_height + 4, ILI9341_WHITE);
-  ILI9341_FillRectangle(input_field_x - 1, input_field_y - 1, input_field_width + 2, input_field_height + 2, ILI9341_BLACK);
-  ILI9341_FillRectangle(input_field_x, input_field_y, input_field_width, input_field_height, ILI9341_WHITE);
-
-  // Draw the configured text in the input field (two lines)
-  ILI9341_DrawString(input_field_x + 10, input_field_y + 8, DISPLAY_TEXT_LINE1, ILI9341_BLACK, ILI9341_WHITE, 2, Font1);
-  ILI9341_DrawString(input_field_x + 10, input_field_y + 30, DISPLAY_TEXT_LINE2, ILI9341_BLACK, ILI9341_WHITE, 2, Font1);
-
-
-
-  // Simple QWERTY keyboard layout (like original working version)
-  const int key_width = 28;   // Key width
-  const int key_height = 28;  // Key height
-  const int key_spacing = 2;  // Space between keys
-  const int start_x = 5;      // Starting X position
-  const int start_y = input_field_y + input_field_height + 10; // Starting Y position (right below text field)
-
-  // Color palette selection
-  uint16_t border_color, key_color, text_color;
-  switch (KEYBOARD_PALETTE) {
-    case KEYBOARD_PALETTE_CLASSIC:
-      border_color = ILI9341_WHITE;
-      key_color = ILI9341_CYAN;
-      text_color = ILI9341_BLACK;
-      break;
-    case KEYBOARD_PALETTE_DARK:
-      border_color = ILI9341_GRAY;
-      key_color = ILI9341_NAVY;
-      text_color = ILI9341_WHITE;
-      break;
-    case KEYBOARD_PALETTE_MODERN:
-      border_color = ILI9341_BLACK;
-      key_color = ILI9341_MAGENTA;
-      text_color = ILI9341_WHITE;
-      break;
-    default:
-      border_color = ILI9341_WHITE;
-      key_color = ILI9341_CYAN;
-      text_color = ILI9341_BLACK;
-  }
-
-  // Helper function to draw a key (inline implementation)
-  #define drawKey(x, y, label, width_mult) \
-    do { \
-      int actual_width = key_width * width_mult + (width_mult - 1) * key_spacing; \
-      ILI9341_FillRectangle(x - 1, y - 1, actual_width + 2, key_height + 2, border_color); \
-      ILI9341_FillRectangle(x, y, actual_width, key_height, key_color); \
-      /* Font selection */ \
-      if (KEYBOARD_FONT == KEYBOARD_FONT_SMALL) { \
-        int text_x = x + (actual_width - strlen(label) * 6) / 2; \
-        int text_y = y + 6; \
-        ILI9341_DrawString(text_x, text_y, label, text_color, key_color, 1, Font1); \
-      } else if (KEYBOARD_FONT == KEYBOARD_FONT_MEDIUM) { \
-        int text_x = x + (actual_width - strlen(label) * 12) / 2; \
-        int text_y = y + 4; \
-        ILI9341_DrawString(text_x, text_y, label, text_color, key_color, 2, Font1); \
-      } \
-    } while(0)
-
-  // Numbers row: 1 2 3 4 5 6 7 8 9 0
-  const char *numbers = "1234567890";
-  int num_x = start_x;
-  int num_y = start_y - key_height - key_spacing - 5; // Above keyboard
-
-  for (int i = 0; numbers[i] != '\0'; i++) {
-    char num_label[2] = {numbers[i], '\0'};
-    drawKey(num_x, num_y, num_label, 1);
-    num_x += key_width + key_spacing;
-  }
-
-  // Row 1: QWERTY row
-  const char *qwerty1 = (KEYBOARD_CASE == KEYBOARD_CASE_LOWER) ? "qwertyuiop" : "QWERTYUIOP";
-  int current_x = start_x;
-  int current_y = start_y;
-
-  for (int i = 0; qwerty1[i] != '\0'; i++) {
-    char key_label[2] = {qwerty1[i], '\0'};
-    drawKey(current_x, current_y, key_label, 1);
-    current_x += key_width + key_spacing;
-  }
-
-  // Row 2: ASDF row
-  const char *qwerty2 = (KEYBOARD_CASE == KEYBOARD_CASE_LOWER) ? "asdfghjkl" : "ASDFGHJKL";
-  current_x = start_x + (key_width + key_spacing) / 2; // Offset for QWERTY layout
-  current_y = start_y + key_height + key_spacing + 5;
-
-  for (int i = 0; qwerty2[i] != '\0'; i++) {
-    char key_label[2] = {qwerty2[i], '\0'};
-    drawKey(current_x, current_y, key_label, 1);
-    current_x += key_width + key_spacing;
-  }
-
-  // Row 3: ZXCV row
-  const char *qwerty3 = (KEYBOARD_CASE == KEYBOARD_CASE_LOWER) ? "zxcvbnm" : "ZXCVBNM";
-  current_x = start_x + (key_width + key_spacing); // Offset for QWERTY layout
-  current_y = current_y + key_height + key_spacing + 5;
-
-  for (int i = 0; qwerty3[i] != '\0'; i++) {
-    char key_label[2] = {qwerty3[i], '\0'};
-    drawKey(current_x, current_y, key_label, 1);
-    current_x += key_width + key_spacing;
-  }
-
-  // Space bar
-  current_x = start_x + 2 * (key_width + key_spacing);
-  current_y = current_y + key_height + key_spacing + 10;
-  int space_width = 5 * (key_width + key_spacing) - key_spacing;
-
-  ILI9341_FillRectangle(current_x - 1, current_y - 1, space_width + 2, key_height + 2, border_color);
-  ILI9341_FillRectangle(current_x, current_y, space_width, key_height, key_color);
-  ILI9341_DrawString(current_x + space_width/2 - 20, current_y + 8, "SPACE", text_color, key_color, 1, Font1);
-
-  LOG_Printf("Keyboard drawing complete");
+  // Render the complete keyboard interface using the layout module
+  render_keyboard_interface();
 
   LOG_Printf("QWERTY keyboard layout drawn");
 
