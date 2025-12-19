@@ -316,10 +316,28 @@ void StartDefaultTask(void const * argument)
       int actual_width = key_width * width_mult + (width_mult - 1) * key_spacing; \
       ILI9341_FillRectangle(x - 1, y - 1, actual_width + 2, key_height + 2, border_color); \
       ILI9341_FillRectangle(x, y, actual_width, key_height, key_color); \
-      int text_x = x + (actual_width - strlen(label) * 6) / 2; \
-      int text_y = y + 6; \
-      ILI9341_DrawString(text_x, text_y, label, text_color, key_color, 1, Font1); \
+      /* Font selection */ \
+      if (KEYBOARD_FONT == KEYBOARD_FONT_SMALL) { \
+        int text_x = x + (actual_width - strlen(label) * 6) / 2; \
+        int text_y = y + 6; \
+        ILI9341_DrawString(text_x, text_y, label, text_color, key_color, 1, Font1); \
+      } else if (KEYBOARD_FONT == KEYBOARD_FONT_MEDIUM) { \
+        int text_x = x + (actual_width - strlen(label) * 12) / 2; \
+        int text_y = y + 4; \
+        ILI9341_DrawString(text_x, text_y, label, text_color, key_color, 2, Font1); \
+      } \
     } while(0)
+
+  // Numbers row: 1 2 3 4 5 6 7 8 9 0
+  const char *numbers = "1234567890";
+  int num_x = start_x;
+  int num_y = start_y - key_height - key_spacing - 5; // Above keyboard
+
+  for (int i = 0; numbers[i] != '\0'; i++) {
+    char num_label[2] = {numbers[i], '\0'};
+    drawKey(num_x, num_y, num_label, 1);
+    num_x += key_width + key_spacing;
+  }
 
   // Row 1: Q W E R T Y U I O P
   const char *qwerty1 = "QWERTYUIOP";

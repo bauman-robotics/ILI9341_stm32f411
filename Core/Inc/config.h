@@ -20,4 +20,12 @@
 // Current keyboard palette (choose one)
 #define KEYBOARD_PALETTE KEYBOARD_PALETTE_CLASSIC
 
+// Keyboard font options
+#define KEYBOARD_FONT_SMALL   0  // Font1 size 1 (5x7 pixels)
+#define KEYBOARD_FONT_MEDIUM  1  // Font1 size 2 (10x14 pixels)
+
+
+// Current keyboard font (choose one)
+#define KEYBOARD_FONT KEYBOARD_FONT_MEDIUM
+
 #endif /* CONFIG_H */
