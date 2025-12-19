@@ -113,22 +113,22 @@
 /** @brief Ширина функциональных кнопок в нижнем ряду */
 #define FUNC_KEY_WIDTH    45  // 
 /** @brief Высота функциональных кнопок */
-#define FUNC_KEY_HEIGHT   20
+#define FUNC_KEY_HEIGHT   30
 /** @brief Отступ между функциональными кнопками */
 #define FUNC_KEY_SPACING  2
 
 /** @brief Y координата нижнего ряда функциональных кнопок */
-#define FUNC_ROW_Y        220  // В самый низ для тестирования
+#define FUNC_ROW_Y        220  // Тестируем позицию выше
 
 /** @brief Пиктограммы для функциональных кнопок */
 #define FUNC_BUTTONS_COUNT 6
 static const char* func_button_labels[FUNC_BUTTONS_COUNT] = {
-    "Up",   // ⇧ Переключение регистра (стрелка вверх)
-    " ",   // □ Пробел (прямоугольник)
-    "Lang",  // A↔ Переключение языка (A со стрелками)
-    "Back",   // × Отмена (крестик)
-    "Ent ",   // ↲ Ввод (стрелка возврата)
-    "Menu"    // ≡ Меню (гамбургер меню)
+    "Up ",   // ⇧ Переключение регистра (стрелка вверх)
+    "Sps",   // □ Пробел (прямоугольник)
+    "Lng",   // A↔ Переключение языка (A со стрелками)
+    "Bck",   // × Отмена (крестик)
+    "Ent",   //,   // ↲ Ввод (стрелка возврата)
+    "Mnu"    // ≡ Меню (гамбургер меню)
 };
 
 // =============================================================================
@@ -145,7 +145,7 @@ static inline void init_color_palette(uint16_t *border_color, uint16_t *key_colo
     switch (KEYBOARD_PALETTE) {
         case KEYBOARD_PALETTE_CLASSIC:
             *border_color = ILI9341_WHITE;
-            *key_color = ILI9341_CYAN;
+            *key_color = ILI9341_CYAN;  // Возвращаем нормальный голубой цвет
             *text_color = ILI9341_BLACK;
             break;
         case KEYBOARD_PALETTE_DARK:
@@ -160,7 +160,7 @@ static inline void init_color_palette(uint16_t *border_color, uint16_t *key_colo
             break;
         default:
             *border_color = ILI9341_WHITE;
-            *key_color = ILI9341_CYAN;
+            *key_color = ILI9341_CYAN;  // Возвращаем нормальный голубой цвет
             *text_color = ILI9341_BLACK;
     }
 }
@@ -293,11 +293,9 @@ static inline void render_text_input_field(void) {
  */
 static inline void draw_func_key(int x, int y, const char* label,
                                 uint16_t border_color, uint16_t key_color, uint16_t text_color) {
-    // Отрисовка рамки функциональной клавиши с проверкой границ
-    safe_fill_rectangle(x - 1, y - 1, FUNC_KEY_WIDTH + 2, FUNC_KEY_HEIGHT + 2, border_color);
-
-    // Отрисовка фона функциональной клавиши с проверкой границ
-    safe_fill_rectangle(x, y, FUNC_KEY_WIDTH, FUNC_KEY_HEIGHT, key_color);
+    // Временно отключаем safe_fill_rectangle для тестирования
+    ILI9341_FillRectangle(x - 1, y - 1, FUNC_KEY_WIDTH + 2, FUNC_KEY_HEIGHT + 2, border_color);
+    ILI9341_FillRectangle(x, y, FUNC_KEY_WIDTH, FUNC_KEY_HEIGHT, key_color);
 
     // Расчет позиционирования текста для функциональных клавиш
     int text_x = x + (FUNC_KEY_WIDTH - (int)strlen(label) * 12) / 2;  // Font1 size 2
@@ -333,9 +331,6 @@ static inline void render_keyboard_layout(void) {
     // Инициализация цветовой палитры
     uint16_t border_color, key_color, text_color;
     init_color_palette(&border_color, &key_color, &text_color);
-
-    // Отрисовка нижнего ряда функциональных кнопок ПЕРВЫМИ (фон)
-    render_functional_buttons();
 
     // Текущая X позиция для отрисовки клавиш
     int current_x;
@@ -375,6 +370,9 @@ static inline void render_keyboard_layout(void) {
         draw_key(current_x, ZXCV_ROW_Y, key_label, 1, border_color, key_color, text_color);
         current_x += KEY_WIDTH + KEY_SPACING;
     }
+
+    // Отрисовка нижнего ряда функциональных кнопок ПОСЛЕДНИМИ (поверх клавиатуры)
+    render_functional_buttons();
 }
 
 // =============================================================================
