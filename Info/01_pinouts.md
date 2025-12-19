@@ -19,11 +19,11 @@ II                 I .I   pim 1
 
 Pinouts 
 
-14.  T_IRQ
-13.  T_DO
-12.  T_DIN
-11.  T_CS        
-10.  T_CLK     
+14.  T_IRQ TOUCH_IRQ PB9
+13.  T_DO  SPI2_MISO PB14
+12.  T_DIN SPI2_MOSI PB15
+11.  T_CS  SPI2_CS   PB13      
+10.  T_CLK SPI2_SCK  PB10    
 
 9.  MISO   SPI1_MISO  PA6
 8.  LED    LED        PC13  (Hi Level - Lighting)
