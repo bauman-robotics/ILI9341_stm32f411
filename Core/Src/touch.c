@@ -7,15 +7,24 @@
  */
 
 #include "touch.h"
+#include "touch_calibration.h"
 #include "spi.h"
 #include "gpio.h"
 #include "logger.h"
 #include "config.h"
+#include "ili9341.h"
 #include <string.h>
 
 // Static variables
 static touch_data_t last_touch_data = {0};
 static uint8_t touch_initialized = 0;
+
+// Note: Calibration variables are now defined in touch_calibration.c
+
+// Forward declarations for calibration functions
+void TOUCH_HandleCalibrationTouch(uint16_t x_raw, uint16_t y_raw);
+void TOUCH_ShowCalibrationMenu(void);
+static void TOUCH_HandleMenuTouch(uint16_t x_raw, uint16_t y_raw);
 
 /**
  * @brief Initialize MSP2807 touchscreen
@@ -101,8 +110,7 @@ void TOUCH_Init(void) {
     touch_initialized = 1;
     LOG_SendString("TOUCH: MSP2807 touchscreen initialized (full)\r\n");
 
-    // Optional calibration
-    TOUCH_Calibrate();
+    // Calibration is now started from StartDefaultTask
 }
 
 /**
@@ -207,11 +215,17 @@ uint8_t TOUCH_ReadData(touch_data_t *data) {
 }
 
 /**
- * @brief Calibrate touchscreen (placeholder)
+ * @brief Calibrate touchscreen
+ * Starts calibration process if enabled in configuration
  */
 void TOUCH_Calibrate(void) {
-    LOG_SendString("TOUCH: Calibration placeholder - using default scaling\r\n");
-    // TODO: Implement proper calibration routine
+    LOG_SendString("TOUCH: TOUCH_Calibrate() called\r\n");
+    #if TOUCHSCREEN_CALIBRATION_ENABLED
+    LOG_SendString("TOUCH: Starting calibration automatically\r\n");
+    TOUCH_StartCalibration();
+    #else
+    LOG_SendString("TOUCH: Calibration disabled in configuration\r\n");
+    #endif
 }
 
 /**
@@ -223,6 +237,21 @@ void TOUCH_ProcessInterrupt(void) {
     touch_data_t touch_data;
     if (TOUCH_ReadData(&touch_data)) {
 
+        // Handle calibration mode
+        if (calibration_active == 1 && touch_data.event == TOUCH_EVENT_PRESS) {
+            // Get raw coordinates for calibration
+            uint16_t raw_x = TOUCH_ReadX();
+            uint16_t raw_y = TOUCH_ReadY();
+            TOUCH_HandleCalibrationTouch(raw_x, raw_y);
+        }
+        // Handle menu mode
+        else if (calibration_active == 2 && touch_data.event == TOUCH_EVENT_PRESS) {
+            // Get raw coordinates for menu selection
+            uint16_t raw_x = TOUCH_ReadX();
+            uint16_t raw_y = TOUCH_ReadY();
+            TOUCH_HandleMenuTouch(raw_x, raw_y);
+        }
+
         #if ENABLE_TOUCH_DEBUG
         // Log touch coordinates
         LOG_Printf("TOUCH: Event=%d, X=%d, Y=%d, Pressure=%d, Time=%lu\r\n",
@@ -232,6 +261,43 @@ void TOUCH_ProcessInterrupt(void) {
 
         // Store last touch data
         memcpy(&last_touch_data, &touch_data, sizeof(touch_data_t));
+    }
+}
+
+/**
+ * @brief Handle touch input in menu mode
+ * @param x_raw Raw X coordinate from touch
+ * @param y_raw Raw Y coordinate from touch
+ */
+static void TOUCH_HandleMenuTouch(uint16_t x_raw, uint16_t y_raw) {
+    // Define menu option areas (approximate Y coordinates)
+    // 1. Save Results: Y around 40-60
+    // 2. Discard Results: Y around 65-85
+    // 3. Recalibrate: Y around 90-110
+
+    if (y_raw >= 35 && y_raw <= 60) {
+        // Option 1: Save Results
+        LOG_SendString("TOUCH: Saving calibration results\r\n");
+        ILI9341_FillScreen(ILI9341_BLACK);
+        ILI9341_DrawStringLarge(10, 50, "Results Saved!", ILI9341_GREEN, ILI9341_BLACK);
+        osDelay(2000);
+        calibration_active = 0; // Exit calibration
+    }
+    else if (y_raw >= 60 && y_raw <= 85) {
+        // Option 2: Discard Results
+        LOG_SendString("TOUCH: Discarding calibration results\r\n");
+        ILI9341_FillScreen(ILI9341_BLACK);
+        ILI9341_DrawStringLarge(10, 50, "Results Discarded", ILI9341_RED, ILI9341_BLACK);
+        osDelay(2000);
+        calibration_active = 0; // Exit calibration
+    }
+    else if (y_raw >= 85 && y_raw <= 110) {
+        // Option 3: Recalibrate
+        LOG_SendString("TOUCH: Starting recalibration\r\n");
+        TOUCH_StartCalibration();
+    }
+    else {
+        LOG_Printf("TOUCH: Menu touch outside options: X=%d, Y=%d\r\n", x_raw, y_raw);
     }
 }
 

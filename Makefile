@@ -45,6 +45,7 @@ Core/Src/fonts.c \
 Core/Src/Font_13.c \
 Core/Src/Font_19.c \
 Core/Src/touch.c \
+Core/Src/touch_calibration.c \
 Core/Src/stm32f4xx_it.c \
 Core/Src/stm32f4xx_hal_msp.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c \

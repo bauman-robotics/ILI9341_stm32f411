@@ -10,7 +10,7 @@
 #define TASK_SCROLLING_HELLO 0
 
 // Task 3: Draw QWERTY keyboard layout with borders for touchscreen
-#define TASK_QWERTY_KEYBOARD 1
+#define TASK_QWERTY_KEYBOARD 0
 
 // Keyboard color palettes
 #define KEYBOARD_PALETTE_CLASSIC  0  // White borders, cyan background
@@ -51,5 +51,10 @@
 #define ENABLE_TOUCHSCREEN 1         // Enable MSP2807 touchscreen support
 #define ENABLE_TOUCH_DEBUG 1         // Enable touch coordinates logging
 #define ENABLE_TOUCH_INIT_MINIMAL 0  // No TOUCH_Init() - test TouchTask only
+
+/** @brief Enable touchscreen calibration */
+#define TOUCHSCREEN_CALIBRATION_ENABLED 1
+
+// Touchscreen calibration configuration is now in touch_calibration.h
 
 #endif /* CONFIG_H */

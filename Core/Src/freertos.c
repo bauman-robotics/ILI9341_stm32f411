@@ -32,6 +32,7 @@
 #include "config.h"
 #include "keyboard_layout.h"
 #include "touch.h"
+#include "touch_calibration.h"
 
 // DMA transfer flag from ili9341.c
 extern volatile uint8_t dma_transfer_complete;
@@ -62,6 +63,7 @@ osThreadId defaultTaskHandle;
 /* USER CODE BEGIN FunctionPrototypes */
 
 void TouchTask(void const * argument);
+void CalibrationTask(void const * argument);
 void LivePacketTask(void const * argument);
 
 /* USER CODE END FunctionPrototypes */
@@ -133,6 +135,17 @@ void MX_FREERTOS_Init(void) {
   }
   #endif
 
+  #if TOUCHSCREEN_CALIBRATION_ENABLED
+  // Create CalibrationTask for touchscreen calibration
+  osThreadDef(calibrationTask, CalibrationTask, CALIBRATION_TASK_PRIORITY, 0, CALIBRATION_TASK_STACK_SIZE);
+  osThreadId calibrationTaskHandle = osThreadCreate(osThread(calibrationTask), NULL);
+  if (calibrationTaskHandle == NULL) {
+    //LOG_SendString("FREERTOS: ERROR - CalibrationTask creation failed!\r\n");
+  } else {
+    //LOG_SendString("FREERTOS: CalibrationTask created\r\n");
+  }
+  #endif
+
   #if ENABLE_LIVE_PACKET_TASK
   // Create LivePacketTask for live packet output (without logging to avoid USB conflicts)
   osThreadDef(livePacketTask, LivePacketTask, osPriorityBelowNormal, 0, 256);
@@ -194,6 +207,12 @@ void StartDefaultTask(void const * argument)
 
   // Additional delay to ensure display is ready
   osDelay(200);
+
+  #if ENABLE_TOUCHSCREEN && TOUCHSCREEN_CALIBRATION_ENABLED
+  // Start calibration immediately after display init
+  LOG_SendString("MAIN: Starting touchscreen calibration\r\n");
+  TOUCH_StartCalibration();
+  #endif
 
 
   // Debug: Check which task is active
@@ -324,9 +343,75 @@ void StartDefaultTask(void const * argument)
 
 #endif
 
+  // Static variables for calibration state tracking
+  static uint8_t last_calibration_active = 0;
+  static uint8_t last_calibration_step = 0;
+  static uint8_t touch_feedback_shown = 0;
+
   /* Infinite loop */
   for(;;)
   {
+    // Handle calibration UI updates in main task (not in interrupt!)
+    if (calibration_active == 1) {  // Calibration mode
+        // Check if we need to update the UI after a touch
+        if (calibration_step != last_calibration_step) {
+            // Clear screen and show touch feedback
+            ILI9341_FillScreen(ILI9341_BLACK);
+
+            // Show blue touch point briefly
+            if (!touch_feedback_shown && calibration_step > 0) {
+                calibration_point_t *last_point = &calibration_points[calibration_step - 1];
+                ILI9341_FillRectangle(last_point->raw_x - 2, last_point->raw_y - 2, 5, 5, ILI9341_BLUE);
+                touch_feedback_shown = 1;
+                osDelay(300);  // Show touch point for 300ms
+            }
+
+            // Clear screen again and redraw
+            ILI9341_FillScreen(ILI9341_BLACK);
+
+            if (calibration_step < 5) {
+                // Redisplay title and instructions
+                ILI9341_DrawStringLarge(10, 10, "Calibration Mode", ILI9341_WHITE, ILI9341_BLACK);
+                ILI9341_DrawStringLarge(10, 35, "Touch the points", ILI9341_YELLOW, ILI9341_BLACK);
+
+                // Draw next point (inline since function is static)
+                if (calibration_step < 5) {
+                    calibration_point_t *point = &calibration_points[calibration_step];
+                    uint16_t color = point->collected ? ILI9341_GREEN : ILI9341_RED;
+                    ILI9341_FillRectangle(point->display_x - 10, point->display_y - 1, 20, 3, color);
+                    ILI9341_FillRectangle(point->display_x - 1, point->display_y - 10, 3, 20, color);
+                    char num_str[2] = {'1' + calibration_step, '\0'};
+                    ILI9341_DrawString(point->display_x + 15, point->display_y - 10, num_str, ILI9341_WHITE, ILI9341_BLACK, 2, 0);
+                }
+
+                LOG_Printf("TOUCH: Ready for point %d at X=%d, Y=%d\r\n",
+                           calibration_step + 1,
+                           calibration_points[calibration_step].display_x,
+                           calibration_points[calibration_step].display_y);
+            } else {
+                // All points collected, show completion menu
+                TOUCH_ShowCalibrationMenu();
+            }
+
+            last_calibration_step = calibration_step;
+            touch_feedback_shown = 0;
+        }
+    }
+    else if (calibration_active == 0 && last_calibration_active != 0) {
+        // Calibration finished, redraw the normal interface
+        ILI9341_FillScreen(ILI9341_BLACK);
+
+        #if TASK_QWERTY_KEYBOARD == 1
+        // Redraw keyboard after calibration
+        render_keyboard_interface();
+        LOG_SendString("TOUCH: Keyboard redrawn after calibration\r\n");
+        #endif
+
+        last_calibration_active = 0;
+    }
+
+    last_calibration_active = calibration_active;
+
     HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
     osDelay(500);
   }
@@ -359,7 +444,7 @@ void TouchTask(void const * argument) {
 
     // Initialize touchscreen in the task
     TOUCH_Init();
-    
+
     LOG_SendString("TOUCH: Initialization complete\r\n");
 
     while (1) {
@@ -384,6 +469,27 @@ void TouchTask(void const * argument) {
         // Small delay to prevent CPU hogging
         osDelay(50);
     }
+}
+
+void CalibrationTask(void const * argument) {
+    LOG_SendString("CALIBRATION: Task started\r\n");
+
+    // Initialize calibration module
+    TOUCH_CALIBRATION_Init();
+
+    // // Wait for the specified delay before starting calibration
+    osDelay(CALIBRATION_START_DELAY_MS);
+
+    LOG_SendString("CALIBRATION: Starting calibration process\r\n");
+
+    // Start calibration
+    TOUCH_StartCalibration();
+
+    // Task ends after starting calibration - UI updates are handled in StartDefaultTask
+    LOG_SendString("CALIBRATION: Task completed\r\n");
+
+    // Delete the task since it's no longer needed
+    vTaskDelete(NULL);
 }
 
 /* USER CODE END Application */

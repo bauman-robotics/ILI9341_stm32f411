@@ -49,6 +49,7 @@ void TOUCH_Init(void);
 uint8_t TOUCH_IsTouched(void);
 uint8_t TOUCH_ReadData(touch_data_t *data);
 void TOUCH_Calibrate(void);
+void TOUCH_StartCalibration(void);
 void TOUCH_ProcessInterrupt(void);
 void TOUCH_GPIO_Test(void);
 

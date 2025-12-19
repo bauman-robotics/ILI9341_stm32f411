@@ -165,4 +165,146 @@ System: Starting application
     Сделаем последовательный вывод нескольких точек на фреймбуфере с известными кооринатами, при получении прерывания от тачскрина, 
     будем вычислять калибровочные коэффициенты и выводить их в консольный лог, для последующего сохранения в конфиг файле как константные значения 
     калибровки. 
-     
+
+39   TOUCHSCREEN_CALIBRATION_ENABLED 1  
+     1. Давай на экране напишем, что это режим калибровки. 
+     Для всех надписей будем использовать Font1_2x 
+     2. После вывода надписи можно сразу рисовать первую точку. 
+     В логах пишем её координаты. 
+     При получении прерывания от тачскрина пишем текущие полученные кооринаты, 
+     и пишем разницу координат. И рисуем точку, на экране, отмеченную стиллусом, в которую мы попали. 
+     Далее переходим к другим точкам. 
+     После калибровки На экране выводим надпись - калибровка завершена. 
+     И давай придумаем вариант, с возможностью выбора повторной калибровки, 
+     с примененными коэффициентами. 
+     Может нам сделать меню, типа сохранить результаты, сбросить результаты, повторить калибровку. 
+
+40   1. Нет надписи, что это режим калибровки. Нет первой точки на экране. 
+     Реши эти проблемы          
+
+41   1. Нет надписи что включен режим калибровки после инициализации дисплея.      
+     Клавиатуры мы не рисуем, если не выбран режим (TASK_QWERTY_KEYBOARD = 1)
+     Таск калибровки должен запускаться, если выбран TOUCHSCREEN_CALIBRATION_ENABLED = 1
+     перенеси таск калибровки и все функции калибровки в отдельный файл.  
+     Сделай дефайн с временем задержки запуска таска калибровки после ресета. 
+     Заведи хедер файл с файлу калибровки, где будут задаваться параметры 
+     фреймбуфера - страницы калибровки. 
+     Посмотри, сколько памяти нужно выделить под этот таск, учитывая объем статических переменных                                           
+
+
+     Setting display to landscape mode                                    
+FREERTOS: TouchTask was created                                      
+MAIN: Starting touchscreen calibration                               
+TOUCH: Starting touchscreen calibration                              
+TOUCH: After delay, testing display                                  
+TOUCH: Test rectangle drawn                                          
+TOUCH: Screen cleared                                                
+TOUCH: Title drawn                                                   
+TOUCH: Instructions drawn                                            
+TOUCH: First point drawn                                             
+TOUCH: Calibration point 1 expected at: X=10, Y=10                   
+                                                                     
+TOUCH: Touch the displayed point to begin calibration                
+Config check active                                                  
+TOUCH: Interrupt received from touchscreen                           
+TOUCH: Interrupt received from touchscreen                           
+TOUCH: Event=1, X=208, Y=79, Pressure=680                            
+                                                                     
+TOUCH: Interrupt received from touchscreen                           
+TOUCH: Event=1, X=206, Y=78, Pressure=685                            
+                                                                     
+TOUCH: Interrupt received from touchscreen                           
+TOUCH: Interrupt received from touchscreen                           
+TOUCH: Ready for point 3 at X=310, Y=230                             
+                                            
+
+42 
+ 1. void MX_FREERTOS_Init(void) {
+  тут мы не делаем никаких консольных логов, это приводит к зависанию на Get_Tick() при старте, 
+  т.к. Hal_Delay() не работает в тасках фриротос. 
+
+  CalibrationTask
+  TOUCH_CALIBRATION_Init();
+
+
+  Первую точку вижу  X=10, Y=10, но когда мы её нажимаем, получаем 
+  координаты  X=289, Y=225 
+  противоположного угла экрана, (320x240)
+
+  Setting display to landscape mode                                    
+FREERTOS: TouchTask was created                                      
+MAIN: Starting touchscreen calibration                               
+TOUCH_CAL: Starting touchscreen calibration                          
+TOUCH_CAL: After delay, testing display                              
+TOUCH_CAL: After delay, testing display                              
+TOUCH_CAL: Screen cleared                                            
+TOUCH_CAL: First point drawn                                         
+TOUCH_CAL: Calibration point 1 expected at: X=10, Y=10               
+                                                                     
+TOUCH_CAL: Touch the displayed point to begin calibration            
+CALIBRATION: Task completed                                          
+TOUCH_CAL: Screen cleared                                            
+TOUCH_CAL: First point drawn                                         
+TOUCH_CAL: Calibration point 1 expected at: X=10, Y=10               
+                                                                     
+TOUCH_CAL: Touch the displayed point to begin calibration            
+Config check active                                                  
+TOUCH: Interrupt received from touchscreen                           
+TOUCH: Interrupt received from touchscreen                           
+TOUCH: Event=1, X=289, Y=225, Pressure=1299    
+
+Этот код перенеси в файл с калибровкой 
+
+    // Handle calibration UI updates in main task (not in interrupt!)
+    if (calibration_active == 1) {  // Calibration mode
+        // Check if we need to update the UI after a touch
+        if (calibration_step != last_calibration_step) {
+            // Clear screen and show touch feedback
+            ILI9341_FillScreen(ILI9341_BLACK);
+
+            // Show blue touch point briefly
+            if (!touch_feedback_shown && calibration_step > 0) {
+                calibration_point_t *last_point = &calibration_points[calibration_step - 1];
+                ILI9341_FillRectangle(last_point->raw_x - 2, last_point->raw_y - 2, 5, 5, ILI9341_BLUE);
+                touch_feedback_shown = 1;
+                osDelay(300);  // Show touch point for 300ms
+            }
+
+            // Clear screen again and redraw
+            ILI9341_FillScreen(ILI9341_BLACK);
+
+            if (calibration_step < 5) {
+                // Redisplay title and instructions
+                ILI9341_DrawStringLarge(10, 10, "Calibration Mode", ILI9341_WHITE, ILI9341_BLACK);
+                ILI9341_DrawStringLarge(10, 35, "Touch the points", ILI9341_YELLOW, ILI9341_BLACK);
+
+                // Draw next point (inline since function is static)
+                if (calibration_step < 5) {
+                    calibration_point_t *point = &calibration_points[calibration_step];
+                    uint16_t color = point->collected ? ILI9341_GREEN : ILI9341_RED;
+                    ILI9341_FillRectangle(point->display_x - 10, point->display_y - 1, 20, 3, color);
+                    ILI9341_FillRectangle(point->display_x - 1, point->display_y - 10, 3, 20, color);
+                    char num_str[2] = {'1' + calibration_step, '\0'};
+                    ILI9341_DrawString(point->display_x + 15, point->display_y - 10, num_str, ILI9341_WHITE, ILI9341_BLACK, 2, 0);
+                }
+
+                LOG_Printf("TOUCH: Ready for point %d at X=%d, Y=%d\r\n",
+                           calibration_step + 1,
+                           calibration_points[calibration_step].display_x,
+                           calibration_points[calibration_step].display_y);
+            } else {
+                // All points collected, show completion menu
+                TOUCH_ShowCalibrationMenu();
+            }
+
+            last_calibration_step = calibration_step;
+            touch_feedback_shown = 0;
+        }
+
+
+  не работает:
+  ILI9341_FillRectangle(0, 0, 50, 50, ILI9341_RED);
+
+  работает:
+  ILI9341_FillRectangle(100, 10, 20, 20, ILI9341_RED);  
+  не понятно почему, потом разберемся. 
