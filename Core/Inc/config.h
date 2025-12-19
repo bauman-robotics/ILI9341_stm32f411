@@ -35,7 +35,8 @@
 // Current keyboard case (choose one)
 #define KEYBOARD_CASE KEYBOARD_CASE_LOWER
 
-// Text to display in the input field at the top of the screen
-#define DISPLAY_TEXT "Hello World!"
+// Text to display in the input field at the top of the screen (two lines)
+#define DISPLAY_TEXT_LINE1 "Hello World!"
+#define DISPLAY_TEXT_LINE2 "STM32 ILI9341"
 
 #endif /* CONFIG_H */
