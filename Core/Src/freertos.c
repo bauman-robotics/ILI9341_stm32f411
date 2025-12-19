@@ -159,7 +159,7 @@ void StartDefaultTask(void const * argument)
   // Debug: Check which task is active
   LOG_Printf("Config check active");
 
-#if TASK_ALPHABET_DISPLAY
+#if TASK_ALPHABET_DISPLAY == 1
   // Task 1: Display complete alphabet with two fonts
   LOG_Printf("Task: Alphabet Display");
   LOG_Printf("Font1: 5x7 pixels, Font1_2x: 10x14 pixels");
@@ -178,7 +178,7 @@ void StartDefaultTask(void const * argument)
   // Font1_2x (10x14) - Lowercase a-z
   ILI9341_DrawStringLarge(10, 75, lower_az, ILI9341_RED, ILI9341_BLACK);
 
-#elif TASK_SCROLLING_HELLO
+#elif TASK_SCROLLING_HELLO == 1
   // Task 2: Cyclic scrolling "Hello World!" text in large font
   LOG_Printf("Task: Scrolling Hello World!");
   LOG_Printf("Cyclic scrolling text with Font1_2x");
@@ -188,7 +188,6 @@ void StartDefaultTask(void const * argument)
   const int text_width = 12 * 13; // Approximate width of text in large font
 
   int prev_scroll_pos = scroll_pos;
-  const int char_width = 13; // Width of large character (10px + spacing)
 
   LOG_Printf("Starting scroll loop with optimized rendering...");
 
