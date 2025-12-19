@@ -83,10 +83,30 @@
 
 ## Текущие проблемы
 
-### Диагностика прерываний тачскрина
+### Диагностика прерываний тачскрина (РЕШЕНО)
 - **Проблема**: Прерывания от тачскрина видны на логическом анализаторе, но консольные логи не появляются при получении прерывания
 - **Возможные причины**: Logger использовал osDelay() в контексте прерывания, что не работает
 - **Решение**: Сделан logger interrupt-safe путем проверки xPortIsInsideInterrupt() и пропуска задержек в прерывании. Добавлен GPIO toggle PC13 для визуальной отладки прерываний.
+- **Результат**: Логи теперь появляются в консоли при касании тачскрина. Пример вывода:
+  ```
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Event=1, X=124, Y=61, Pressure=333
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Event=1, X=103, Y=79, Pressure=368
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Interrupt received from touchscreen
+  TOUCH: Event=1, X=121, Y=111, Pressure=417
+  TOUCH: Interrupt received from touchscreen
+  ```
 
 ## Следующие шаги
 1. Реализовать базовый драйвер ILI9341
