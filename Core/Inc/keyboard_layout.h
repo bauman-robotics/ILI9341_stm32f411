@@ -107,6 +107,31 @@
 #define SPACE_BAR_WIDTH   (5 * (KEY_WIDTH + KEY_SPACING) - KEY_SPACING)
 
 // =============================================================================
+// НИЖНИЙ РЯД ФУНКЦИОНАЛЬНЫХ КНОПОК
+// =============================================================================
+
+/** @brief Ширина функциональных кнопок в нижнем ряду */
+#define FUNC_KEY_WIDTH    45  // 
+/** @brief Высота функциональных кнопок */
+#define FUNC_KEY_HEIGHT   20
+/** @brief Отступ между функциональными кнопками */
+#define FUNC_KEY_SPACING  2
+
+/** @brief Y координата нижнего ряда функциональных кнопок */
+#define FUNC_ROW_Y        220  // В самый низ для тестирования
+
+/** @brief Пиктограммы для функциональных кнопок */
+#define FUNC_BUTTONS_COUNT 6
+static const char* func_button_labels[FUNC_BUTTONS_COUNT] = {
+    "Up",   // ⇧ Переключение регистра (стрелка вверх)
+    " ",   // □ Пробел (прямоугольник)
+    "Lang",  // A↔ Переключение языка (A со стрелками)
+    "Back",   // × Отмена (крестик)
+    "Ent ",   // ↲ Ввод (стрелка возврата)
+    "Menu"    // ≡ Меню (гамбургер меню)
+};
+
+// =============================================================================
 // ВЫБОР ЦВЕТОВОЙ ПАЛИТРЫ
 // =============================================================================
 
@@ -145,6 +170,57 @@ static inline void init_color_palette(uint16_t *border_color, uint16_t *key_colo
 // =============================================================================
 
 /**
+ * @brief Безопасная отрисовка прямоугольника с проверкой границ экрана
+ * @param x X координата верхнего левого угла
+ * @param y Y координата верхнего левого угла
+ * @param width Ширина прямоугольника
+ * @param height Высота прямоугольника
+ * @param color Цвет заливки
+ */
+static inline void safe_fill_rectangle(int x, int y, int width, int height, uint16_t color) {
+    // Проверка границ экрана
+    if (x < 0) {
+        width += x;  // Уменьшаем ширину
+        x = 0;       // Сдвигаем к левому краю
+    }
+    if (y < 0) {
+        height += y; // Уменьшаем высоту
+        y = 0;       // Сдвигаем к верхнему краю
+    }
+    if (x + width > DISPLAY_WIDTH) {
+        width = DISPLAY_WIDTH - x;  // Ограничиваем ширину
+    }
+    if (y + height > DISPLAY_HEIGHT) {
+        height = DISPLAY_HEIGHT - y;  // Ограничиваем высоту
+    }
+
+    // Рисуем только если размеры положительные
+    if (width > 0 && height > 0) {
+        // Для очень больших прямоугольников ограничиваем размер для избежания переполнения
+        const int MAX_RECT_SIZE = 5000; // Уменьшаем до 5000 пикселей за раз
+        int total_pixels = width * height;
+
+        if (total_pixels > MAX_RECT_SIZE) {
+            // Рисуем по частям для больших прямоугольников
+            int rows_per_chunk = MAX_RECT_SIZE / width;
+            if (rows_per_chunk < 1) rows_per_chunk = 1;
+
+            int current_y = y;
+            int remaining_height = height;
+
+            while (remaining_height > 0) {
+                int chunk_height = (remaining_height > rows_per_chunk) ? rows_per_chunk : remaining_height;
+                ILI9341_FillRectangle(x, current_y, width, chunk_height, color);
+                current_y += chunk_height;
+                remaining_height -= chunk_height;
+            }
+        } else {
+            ILI9341_FillRectangle(x, y, width, height, color);
+        }
+    }
+}
+
+/**
  * @brief Отрисовка отдельной клавиши с заданной меткой и размерами
  * @param x X координата клавиши
  * @param y Y координата клавиши
@@ -159,11 +235,11 @@ static inline void draw_key(int x, int y, const char* label, int width_mult,
     // Расчет реальной ширины на основе множителя
     int actual_width = KEY_WIDTH * width_mult + (width_mult - 1) * KEY_SPACING;
 
-    // Отрисовка рамки клавиши (2px контур)
-    ILI9341_FillRectangle(x - 1, y - 1, actual_width + 2, KEY_HEIGHT + 2, border_color);
+    // Отрисовка рамки клавиши (2px контур) с проверкой границ
+    safe_fill_rectangle(x - 1, y - 1, actual_width + 2, KEY_HEIGHT + 2, border_color);
 
-    // Отрисовка фона клавиши
-    ILI9341_FillRectangle(x, y, actual_width, KEY_HEIGHT, key_color);
+    // Отрисовка фона клавиши с проверкой границ
+    safe_fill_rectangle(x, y, actual_width, KEY_HEIGHT, key_color);
 
     // Выбор шрифта и расчет позиционирования текста
     if (KEYBOARD_FONT == KEYBOARD_FONT_SMALL) {
@@ -207,13 +283,59 @@ static inline void render_text_input_field(void) {
 }
 
 /**
+ * @brief Отрисовка функциональной клавиши с заданными размерами
+ * @param x X координата клавиши
+ * @param y Y координата клавиши
+ * @param label Текстовая метка для клавиши
+ * @param border_color Цвет для рамки клавиши
+ * @param key_color Цвет для фона клавиши
+ * @param text_color Цвет для текста клавиши
+ */
+static inline void draw_func_key(int x, int y, const char* label,
+                                uint16_t border_color, uint16_t key_color, uint16_t text_color) {
+    // Отрисовка рамки функциональной клавиши с проверкой границ
+    safe_fill_rectangle(x - 1, y - 1, FUNC_KEY_WIDTH + 2, FUNC_KEY_HEIGHT + 2, border_color);
+
+    // Отрисовка фона функциональной клавиши с проверкой границ
+    safe_fill_rectangle(x, y, FUNC_KEY_WIDTH, FUNC_KEY_HEIGHT, key_color);
+
+    // Расчет позиционирования текста для функциональных клавиш
+    int text_x = x + (FUNC_KEY_WIDTH - (int)strlen(label) * 12) / 2;  // Font1 size 2
+    int text_y = y + 4;
+    ILI9341_DrawString(text_x, text_y, label, text_color, key_color, 2, Font1);
+}
+
+/**
+ * @brief Отрисовка нижнего ряда функциональных кнопок
+ * Включает CAPS, SPACE, LANG, CANCEL, ENTER, MENU
+ */
+static inline void render_functional_buttons(void) {
+    // Инициализация цветовой палитры
+    uint16_t border_color, key_color, text_color;
+    init_color_palette(&border_color, &key_color, &text_color);
+
+    // Текущая X позиция для отрисовки функциональных кнопок
+    int current_x = KEYBOARD_START_X;
+
+    // Отрисовка 6 функциональных кнопок с текстом
+    for (int i = 0; i < FUNC_BUTTONS_COUNT; i++) {
+        draw_func_key(current_x, FUNC_ROW_Y, func_button_labels[i],
+                     border_color, key_color, text_color);
+        current_x += FUNC_KEY_WIDTH + FUNC_KEY_SPACING;
+    }
+}
+
+/**
  * @brief Отрисовка полной раскладки QWERTY клавиатуры
- * Включает ряд цифр, раскладку QWERTY и клавишу пробела
+ * Включает ряд цифр, раскладку QWERTY, пунктуацию и нижний ряд функциональных кнопок
  */
 static inline void render_keyboard_layout(void) {
     // Инициализация цветовой палитры
     uint16_t border_color, key_color, text_color;
     init_color_palette(&border_color, &key_color, &text_color);
+
+    // Отрисовка нижнего ряда функциональных кнопок ПЕРВЫМИ (фон)
+    render_functional_buttons();
 
     // Текущая X позиция для отрисовки клавиш
     int current_x;
@@ -253,14 +375,6 @@ static inline void render_keyboard_layout(void) {
         draw_key(current_x, ZXCV_ROW_Y, key_label, 1, border_color, key_color, text_color);
         current_x += KEY_WIDTH + KEY_SPACING;
     }
-
-    // Отрисовка клавиши пробела (увеличенная ширина, охватывает несколько позиций клавиш)
-    ILI9341_FillRectangle(SPACE_BAR_X - 1, SPACE_BAR_Y - 1,
-                         SPACE_BAR_WIDTH + 2, KEY_HEIGHT + 2, border_color);
-    ILI9341_FillRectangle(SPACE_BAR_X, SPACE_BAR_Y,
-                         SPACE_BAR_WIDTH, KEY_HEIGHT, key_color);
-    ILI9341_DrawString(SPACE_BAR_X + SPACE_BAR_WIDTH/2 - 20, SPACE_BAR_Y + 8,
-                      "SPACE", text_color, key_color, 1, Font1);
 }
 
 // =============================================================================
