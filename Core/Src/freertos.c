@@ -277,6 +277,20 @@ void StartDefaultTask(void const * argument)
   // Clear screen to black
   ILI9341_FillScreen(ILI9341_BLACK);
 
+  // Draw text input field at the top with border
+  const int input_field_x = 5;
+  const int input_field_y = 5;
+  const int input_field_width = 310;
+  const int input_field_height = 40;
+
+  // Draw border around input field
+  ILI9341_FillRectangle(input_field_x - 2, input_field_y - 2, input_field_width + 4, input_field_height + 4, ILI9341_WHITE);
+  ILI9341_FillRectangle(input_field_x - 1, input_field_y - 1, input_field_width + 2, input_field_height + 2, ILI9341_BLACK);
+  ILI9341_FillRectangle(input_field_x, input_field_y, input_field_width, input_field_height, ILI9341_WHITE);
+
+  // Draw the configured text in the input field
+  ILI9341_DrawString(input_field_x + 10, input_field_y + 12, DISPLAY_TEXT, ILI9341_BLACK, ILI9341_WHITE, 2, Font1);
+
 
 
   // Simple QWERTY keyboard layout (like original working version)
@@ -284,7 +298,7 @@ void StartDefaultTask(void const * argument)
   const int key_height = 28;  // Key height
   const int key_spacing = 2;  // Space between keys
   const int start_x = 5;      // Starting X position
-  const int start_y = 10 + key_height + 10; // Starting Y position (shifted down)
+  const int start_y = 10 + key_height + 10 + 2 * key_height; // Starting Y position (shifted down by 2 button heights)
 
   // Color palette selection
   uint16_t border_color, key_color, text_color;

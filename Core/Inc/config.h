@@ -35,4 +35,7 @@
 // Current keyboard case (choose one)
 #define KEYBOARD_CASE KEYBOARD_CASE_LOWER
 
+// Text to display in the input field at the top of the screen
+#define DISPLAY_TEXT "Hello World!"
+
 #endif /* CONFIG_H */
