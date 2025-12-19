@@ -115,7 +115,7 @@
 /** @brief Высота функциональных кнопок */
 #define FUNC_KEY_HEIGHT   30
 /** @brief Отступ между функциональными кнопками */
-#define FUNC_KEY_SPACING  2
+#define FUNC_KEY_SPACING  6
 
 /** @brief Y координата нижнего ряда функциональных кнопок */
 #define FUNC_ROW_Y        220  // Тестируем позицию выше
@@ -380,10 +380,92 @@ static inline void render_keyboard_layout(void) {
 // =============================================================================
 
 /**
+ * @brief Детальное логирование координат всех элементов интерфейса
+ * Выводит полную информацию о позиционировании для отладки
+ */
+static inline void log_framebuffer_coordinates(void) {
+    LOG_SendString("=== FRAMEBUFFER COORDINATES DEBUG ===\r\n");
+
+    // Общие параметры дисплея
+    LOG_Printf("DISPLAY: Width=%d, Height=%d\r\n", DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+    // Поле ввода текста
+    LOG_SendString("TEXT INPUT FIELD:\r\n");
+    LOG_Printf("  X=%d, Y=%d, Width=%d, Height=%d\r\n",
+               INPUT_FIELD_X, INPUT_FIELD_Y, INPUT_FIELD_WIDTH, INPUT_FIELD_HEIGHT);
+    LOG_Printf("  End X=%d, End Y=%d\r\n",
+               INPUT_FIELD_X + INPUT_FIELD_WIDTH, INPUT_FIELD_Y + INPUT_FIELD_HEIGHT);
+
+    // Цифровой ряд
+    LOG_SendString("NUMBERS ROW:\r\n");
+    LOG_Printf("  Y=%d, Height=%d\r\n", NUMBERS_ROW_Y, KEY_HEIGHT);
+    LOG_Printf("  Keys: 10 buttons, Width=%d each, Spacing=%d\r\n", KEY_WIDTH, KEY_SPACING);
+    LOG_Printf("  Total width: %d pixels\r\n", 10 * KEY_WIDTH + 9 * KEY_SPACING);
+
+    // QWERTY ряд
+    LOG_SendString("QWERTY ROW:\r\n");
+    LOG_Printf("  Y=%d, Height=%d\r\n", QWERTY_ROW_Y, KEY_HEIGHT);
+    LOG_Printf("  Keys: 10 buttons (q-p), Width=%d each\r\n", KEY_WIDTH);
+
+    // ASDF ряд
+    LOG_SendString("ASDF ROW:\r\n");
+    LOG_Printf("  Y=%d, Height=%d\r\n", ASDF_ROW_Y, KEY_HEIGHT);
+    LOG_Printf("  Keys: 9 buttons (a-l), Width=%d each\r\n", KEY_WIDTH);
+
+    // ZXCV ряд
+    LOG_SendString("ZXCV ROW:\r\n");
+    LOG_Printf("  Y=%d, Height=%d\r\n", ZXCV_ROW_Y, KEY_HEIGHT);
+    LOG_Printf("  Keys: 9 buttons (z-.,), Width=%d each\r\n", KEY_WIDTH);
+
+    // Функциональные кнопки
+    LOG_SendString("FUNCTIONAL BUTTONS:\r\n");
+    LOG_Printf("  Y=%d, Height=%d\r\n", FUNC_ROW_Y, FUNC_KEY_HEIGHT);
+    LOG_Printf("  Count=%d, Width=%d each, Spacing=%d\r\n",
+               FUNC_BUTTONS_COUNT, FUNC_KEY_WIDTH, FUNC_KEY_SPACING);
+    LOG_Printf("  Total width: %d pixels\r\n",
+               FUNC_BUTTONS_COUNT * FUNC_KEY_WIDTH + (FUNC_BUTTONS_COUNT - 1) * FUNC_KEY_SPACING);
+
+    // Схематичный вывод
+    LOG_SendString("SCHEMATIC LAYOUT:\r\n");
+    LOG_SendString("┌─────────────────────────────────────┐\r\n");
+    LOG_SendString("│ ┌─────────────────────────────────┐ │\r\n");
+    LOG_Printf("│ │        TEXT INPUT FIELD         │ │ Y=%d-%d\r\n", INPUT_FIELD_Y, INPUT_FIELD_Y + INPUT_FIELD_HEIGHT);
+    LOG_SendString("│ └─────────────────────────────────┘ │\r\n");
+    LOG_SendString("└─────────────────────────────────────┘\r\n");
+    LOG_Printf("     ↓ %dpx\r\n", TEXT_FIELD_TO_NUMBERS_SPACING);
+    LOG_Printf("┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐ Y=%d\r\n", NUMBERS_ROW_Y);
+    LOG_SendString("│ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │ 0 │\r\n");
+    LOG_SendString("└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘\r\n");
+    LOG_Printf("     ↓ %dpx\r\n", ROW_SPACING);
+    LOG_Printf("┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐ Y=%d\r\n", QWERTY_ROW_Y);
+    LOG_SendString("│ q │ w │ e │ r │ t │ y │ u │ i │ o │ p │\r\n");
+    LOG_SendString("└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘\r\n");
+    LOG_Printf("     ↓ %dpx\r\n", ROW_SPACING);
+    LOG_Printf("┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐ Y=%d\r\n", ASDF_ROW_Y);
+    LOG_SendString("│ a │ s │ d │ f │ g │ h │ j │ k │ l │   │\r\n");
+    LOG_SendString("└─────────────────────────────────────┘\r\n");
+    LOG_Printf("     ↓ %dpx\r\n", ROW_SPACING);
+    LOG_Printf("┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐ Y=%d\r\n", ZXCV_ROW_Y);
+    LOG_SendString("│ z │ x │ c │ v │ b │ n │ m │ . │ , │     │\r\n");
+    LOG_SendString("└─────────────────────────────────────────────┘\r\n");
+    int gap_to_func = FUNC_ROW_Y - (ZXCV_ROW_Y + KEY_HEIGHT);
+    LOG_Printf("     ↓ %dpx\r\n", gap_to_func);
+    LOG_Printf("┌─────┬─────┬─────┬─────┬─────┬─────┐ Y=%d\r\n", FUNC_ROW_Y);
+    LOG_SendString("│  ⇧  │  □  │ A↔  │  ×  │  ↲  │  ≡  │\r\n");
+    LOG_SendString("└─────┴─────┴─────┴─────┴─────┴─────┘\r\n");
+    LOG_SendString("=== END FRAMEBUFFER DEBUG ===\r\n");
+}
+
+/**
  * @brief Отрисовка полного интерфейса клавиатуры
  * Это основная функция для вызова из приложения
  */
 static inline void render_keyboard_interface(void) {
+    // Отладочное логирование координат если включено
+    #if ENABLE_FRAMEBUFFER_DEBUG
+    log_framebuffer_coordinates();
+    #endif
+
     render_text_input_field();
     render_keyboard_layout();
 }

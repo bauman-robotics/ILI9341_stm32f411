@@ -39,4 +39,7 @@
 #define DISPLAY_TEXT_LINE1 "Hello World!"
 #define DISPLAY_TEXT_LINE2 "STM32 ILI9341"
 
+// Debug configuration
+#define ENABLE_FRAMEBUFFER_DEBUG 1  // Enable detailed framebuffer coordinates logging
+
 #endif /* CONFIG_H */
