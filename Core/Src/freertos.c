@@ -126,7 +126,7 @@ void MX_FREERTOS_Init(void) {
   #if ENABLE_TOUCHSCREEN
   // Create TouchTask for touchscreen handling
   //LOG_SendString("FREERTOS: Creating TouchTask...\r\n");
-  osThreadDef(touchTask, TouchTask, osPriorityNormal, 0, 256);
+  osThreadDef(touchTask, TouchTask, osPriorityNormal, 0, 512);
   osThreadId touchTaskHandle = osThreadCreate(osThread(touchTask), NULL);
   if (touchTaskHandle == NULL) {
     //LOG_SendString("FREERTOS: ERROR - TouchTask creation failed!\r\n");
@@ -140,9 +140,7 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(calibrationTask, CalibrationTask, CALIBRATION_TASK_PRIORITY, 0, CALIBRATION_TASK_STACK_SIZE);
   osThreadId calibrationTaskHandle = osThreadCreate(osThread(calibrationTask), NULL);
   if (calibrationTaskHandle == NULL) {
-    //LOG_SendString("FREERTOS: ERROR - CalibrationTask creation failed!\r\n");
-  } else {
-    //LOG_SendString("FREERTOS: CalibrationTask created\r\n");
+    // Error handling without logging (scheduler not started yet)
   }
   #endif
 
@@ -174,7 +172,7 @@ void StartDefaultTask(void const * argument)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   GPIOC->MODER &= ~GPIO_MODER_MODER13;    // Clear mode
   GPIOC->MODER |= GPIO_MODER_MODER13_0;   // Output mode
-  GPIOC->BSRR = GPIO_PIN_13;              // Set HIGH
+  GPIOC->BSRR = LED_Pin;                  // Set HIGH
   LOG_SendString("GPIO: PC13 set to HIGH - check if LED turns off\r\n");
 
   LOG_Init();
@@ -343,74 +341,11 @@ void StartDefaultTask(void const * argument)
 
 #endif
 
-  // Static variables for calibration state tracking
-  static uint8_t last_calibration_active = 0;
-  static uint8_t last_calibration_step = 0;
-  static uint8_t touch_feedback_shown = 0;
-
   /* Infinite loop */
   for(;;)
   {
-    // Handle calibration UI updates in main task (not in interrupt!)
-    if (calibration_active == 1) {  // Calibration mode
-        // Check if we need to update the UI after a touch
-        if (calibration_step != last_calibration_step) {
-            // Clear screen and show touch feedback
-            ILI9341_FillScreen(ILI9341_BLACK);
-
-            // Show blue touch point briefly
-            if (!touch_feedback_shown && calibration_step > 0) {
-                calibration_point_t *last_point = &calibration_points[calibration_step - 1];
-                ILI9341_FillRectangle(last_point->raw_x - 2, last_point->raw_y - 2, 5, 5, ILI9341_BLUE);
-                touch_feedback_shown = 1;
-                osDelay(300);  // Show touch point for 300ms
-            }
-
-            // Clear screen again and redraw
-            ILI9341_FillScreen(ILI9341_BLACK);
-
-            if (calibration_step < 5) {
-                // Redisplay title and instructions
-                ILI9341_DrawStringLarge(10, 10, "Calibration Mode", ILI9341_WHITE, ILI9341_BLACK);
-                ILI9341_DrawStringLarge(10, 35, "Touch the points", ILI9341_YELLOW, ILI9341_BLACK);
-
-                // Draw next point (inline since function is static)
-                if (calibration_step < 5) {
-                    calibration_point_t *point = &calibration_points[calibration_step];
-                    uint16_t color = point->collected ? ILI9341_GREEN : ILI9341_RED;
-                    ILI9341_FillRectangle(point->display_x - 10, point->display_y - 1, 20, 3, color);
-                    ILI9341_FillRectangle(point->display_x - 1, point->display_y - 10, 3, 20, color);
-                    char num_str[2] = {'1' + calibration_step, '\0'};
-                    ILI9341_DrawString(point->display_x + 15, point->display_y - 10, num_str, ILI9341_WHITE, ILI9341_BLACK, 2, 0);
-                }
-
-                LOG_Printf("TOUCH: Ready for point %d at X=%d, Y=%d\r\n",
-                           calibration_step + 1,
-                           calibration_points[calibration_step].display_x,
-                           calibration_points[calibration_step].display_y);
-            } else {
-                // All points collected, show completion menu
-                TOUCH_ShowCalibrationMenu();
-            }
-
-            last_calibration_step = calibration_step;
-            touch_feedback_shown = 0;
-        }
-    }
-    else if (calibration_active == 0 && last_calibration_active != 0) {
-        // Calibration finished, redraw the normal interface
-        ILI9341_FillScreen(ILI9341_BLACK);
-
-        #if TASK_QWERTY_KEYBOARD == 1
-        // Redraw keyboard after calibration
-        render_keyboard_interface();
-        LOG_SendString("TOUCH: Keyboard redrawn after calibration\r\n");
-        #endif
-
-        last_calibration_active = 0;
-    }
-
-    last_calibration_active = calibration_active;
+    // Process calibration UI updates
+    TOUCH_ProcessCalibrationUI();
 
     HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
     osDelay(500);
@@ -457,6 +392,28 @@ void TouchTask(void const * argument) {
             if (TOUCH_IsTouched()) {
                 touch_data_t touch_data;
                 if (TOUCH_ReadData(&touch_data)) {
+
+                    // Handle calibration mode in TouchTask (not in interrupt)
+                    if (calibration_active == 1 && (touch_data.event == TOUCH_EVENT_PRESS || touch_data.event == TOUCH_EVENT_MOVE)) {
+                        LOG_SendString("TOUCH: Processing calibration touch in TouchTask\r\n");
+                        // Get raw coordinates for calibration (before orientation correction in TOUCH_ReadData)
+                        uint16_t raw_x = TOUCH_ReadX();
+                        uint16_t raw_y = TOUCH_ReadY();
+                        TOUCH_HandleCalibrationTouch(raw_x, raw_y);
+                    }
+
+                    // Handle menu mode
+                    if (calibration_active == 2 && (touch_data.event == TOUCH_EVENT_PRESS || touch_data.event == TOUCH_EVENT_MOVE)) {
+                        LOG_SendString("TOUCH: Processing menu touch in TouchTask\r\n");
+                        // Get raw coordinates for menu selection
+                        uint16_t raw_x = TOUCH_ReadX();
+                        uint16_t raw_y = TOUCH_ReadY();
+                        // TOUCH_HandleMenuTouch expects corrected coordinates
+                        raw_x = 4095 - raw_x;  // Apply correction
+                        raw_y = 4095 - raw_y;
+                        TOUCH_HandleMenuTouch(raw_x, raw_y);
+                    }
+
                     #if ENABLE_TOUCH_DEBUG
                     LOG_Printf("TOUCH: Event=%d, X=%d, Y=%d, Pressure=%d\r\n",
                                touch_data.event, touch_data.x, touch_data.y,

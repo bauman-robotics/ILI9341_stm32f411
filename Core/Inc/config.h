@@ -52,9 +52,7 @@
 #define ENABLE_TOUCH_DEBUG 1         // Enable touch coordinates logging
 #define ENABLE_TOUCH_INIT_MINIMAL 0  // No TOUCH_Init() - test TouchTask only
 
-/** @brief Enable touchscreen calibration */
-#define TOUCHSCREEN_CALIBRATION_ENABLED 1
-
-// Touchscreen calibration configuration is now in touch_calibration.h
+// Touchscreen calibration configuration
+#define TOUCHSCREEN_CALIBRATION_ENABLED 1  // Enable touchscreen calibration
 
 #endif /* CONFIG_H */

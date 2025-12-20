@@ -39,8 +39,8 @@
         {
             "label": "Stop OpenOCD",
             "type": "shell",
-            "command": "killall",
-            "args": ["openocd"],
+            "command": "pkill",
+            "args": ["-f", "openocd"],
             "problemMatcher": []
         },
         {

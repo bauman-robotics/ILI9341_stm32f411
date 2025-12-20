@@ -18,6 +18,7 @@
 // Static variables
 static touch_data_t last_touch_data = {0};
 static uint8_t touch_initialized = 0;
+static uint32_t interrupt_counter = 0;
 
 // Note: Calibration variables are now defined in touch_calibration.c
 
@@ -156,7 +157,7 @@ uint16_t TOUCH_ReadADC(uint8_t channel) {
  * @return X coordinate (0-4095)
  */
 uint16_t TOUCH_ReadX(void) {
-    return TOUCH_ReadADC(5); // Channel 5 for X
+    return TOUCH_ReadADC(1); // Channel 1 for X (swapped for landscape)
 }
 
 /**
@@ -164,7 +165,7 @@ uint16_t TOUCH_ReadX(void) {
  * @return Y coordinate (0-4095)
  */
 uint16_t TOUCH_ReadY(void) {
-    return TOUCH_ReadADC(1); // Channel 1 for Y
+    return TOUCH_ReadADC(5); // Channel 5 for Y (swapped for landscape)
 }
 
 /**
@@ -181,13 +182,20 @@ uint16_t TOUCH_ReadPressure(void) {
  * @return 1 if successful, 0 otherwise
  */
 uint8_t TOUCH_ReadData(touch_data_t *data) {
+    
     if (!data) return 0;
-
+    //LOG_Printf("TOUCH_ReadData__________________________2 "); 
     // Read coordinates
     uint16_t x_raw = TOUCH_ReadX();
     uint16_t y_raw = TOUCH_ReadY();
     uint16_t pressure = TOUCH_ReadPressure();
 
+    LOG_Printf("TOUCH_ReadData_x_raw%d, %d", x_raw,  y_raw); 
+
+    // Apply touchscreen orientation correction (inverted coordinates)
+    x_raw = 4095 - x_raw;  // Invert X axis (0-4095 range)
+    y_raw = 4095 - y_raw;  // Invert Y axis (0-4095 range)
+    LOG_Printf("TOUCH_ReadData_x_raw_conv %d, %d", x_raw,  y_raw); 
     // Convert to display coordinates (calibration would go here)
     // For now, simple scaling to match display resolution
     data->x = (x_raw * TOUCH_MAX_X) / 4096;
@@ -233,35 +241,14 @@ void TOUCH_Calibrate(void) {
  * Called from EXTI interrupt handler
  */
 void TOUCH_ProcessInterrupt(void) {
-    // Read touch data
-    touch_data_t touch_data;
-    if (TOUCH_ReadData(&touch_data)) {
+    interrupt_counter++;
 
-        // Handle calibration mode
-        if (calibration_active == 1 && touch_data.event == TOUCH_EVENT_PRESS) {
-            // Get raw coordinates for calibration
-            uint16_t raw_x = TOUCH_ReadX();
-            uint16_t raw_y = TOUCH_ReadY();
-            TOUCH_HandleCalibrationTouch(raw_x, raw_y);
-        }
-        // Handle menu mode
-        else if (calibration_active == 2 && touch_data.event == TOUCH_EVENT_PRESS) {
-            // Get raw coordinates for menu selection
-            uint16_t raw_x = TOUCH_ReadX();
-            uint16_t raw_y = TOUCH_ReadY();
-            TOUCH_HandleMenuTouch(raw_x, raw_y);
-        }
+    // Toggle LED to indicate interrupt is working
+    //HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+    // LOG_SendString("TOUCH: TOUCH_ProcessInterrupt() called\r\n"); // Temporarily disabled
 
-        #if ENABLE_TOUCH_DEBUG
-        // Log touch coordinates
-        LOG_Printf("TOUCH: Event=%d, X=%d, Y=%d, Pressure=%d, Time=%lu\r\n",
-                   touch_data.event, touch_data.x, touch_data.y,
-                   touch_data.pressure, touch_data.timestamp);
-        #endif
-
-        // Store last touch data
-        memcpy(&last_touch_data, &touch_data, sizeof(touch_data_t));
-    }
+    // Touch processing is now handled in TouchTask
+    // This function is kept for compatibility but no longer used
 }
 
 /**

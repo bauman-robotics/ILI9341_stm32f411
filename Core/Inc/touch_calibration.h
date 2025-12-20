@@ -11,15 +11,11 @@
 #include "main.h"
 #include <stdint.h>
 
-// =============================================================================
-// CONFIGURATION DEFINES
-// =============================================================================
-
 /** @brief Delay before starting calibration task after reset (milliseconds) */
 #define CALIBRATION_START_DELAY_MS 1000
 
 /** @brief Stack size for calibration task */
-#define CALIBRATION_TASK_STACK_SIZE 256
+#define CALIBRATION_TASK_STACK_SIZE 512
 
 /** @brief Priority for calibration task */
 #define CALIBRATION_TASK_PRIORITY osPriorityNormal
@@ -45,8 +41,8 @@
 #define CALIBRATION_POINT_1_X 310
 #define CALIBRATION_POINT_1_Y 10
 
-#define CALIBRATION_POINT_2_X 310
-#define CALIBRATION_POINT_2_Y 230
+#define CALIBRATION_POINT_2_X 280
+#define CALIBRATION_POINT_2_Y 200
 
 #define CALIBRATION_POINT_3_X 10
 #define CALIBRATION_POINT_3_Y 230
@@ -122,5 +118,10 @@ void TOUCH_CalculateCalibrationCoefficients(void);
  * @param point_index Index of the calibration point to draw
  */
 void TOUCH_DrawCalibrationPoint(uint8_t point_index);
+
+/**
+ * @brief Process calibration UI updates (call from main task loop)
+ */
+void TOUCH_ProcessCalibrationUI(void);
 
 #endif /* TOUCH_CALIBRATION_H */
