@@ -355,6 +355,13 @@ void StartDefaultTask(void const * argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+
+// Переопределение HAL_Delay для совместимости с FreeRTOS
+void HAL_Delay(uint32_t Delay)
+{
+  osDelay(Delay);
+}
+
 void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
     /* Called if stack overflow is detected */

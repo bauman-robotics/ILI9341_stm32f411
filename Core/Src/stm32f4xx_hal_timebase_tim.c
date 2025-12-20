@@ -87,23 +87,15 @@ HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
   status = HAL_TIM_Base_Init(&htim4);
   if (status == HAL_OK)
   {
-    /* Start the TIM time Base generation in interrupt mode */
-    status = HAL_TIM_Base_Start_IT(&htim4);
-    if (status == HAL_OK)
+    /* TIM interrupts disabled to prevent debugger interruption */
+    /* Configure the SysTick IRQ priority */
+    if (TickPriority < (1UL << __NVIC_PRIO_BITS))
     {
-    /* Enable the TIM4 global Interrupt */
-        HAL_NVIC_EnableIRQ(TIM4_IRQn);
-      /* Configure the SysTick IRQ priority */
-      if (TickPriority < (1UL << __NVIC_PRIO_BITS))
-      {
-        /* Configure the TIM IRQ priority */
-        HAL_NVIC_SetPriority(TIM4_IRQn, TickPriority, 0U);
-        uwTickPrio = TickPriority;
-      }
-      else
-      {
-        status = HAL_ERROR;
-      }
+      uwTickPrio = TickPriority;
+    }
+    else
+    {
+      status = HAL_ERROR;
     }
   }
 
@@ -134,4 +126,3 @@ void HAL_ResumeTick(void)
   /* Enable TIM4 Update interrupt */
   __HAL_TIM_ENABLE_IT(&htim4, TIM_IT_UPDATE);
 }
-
